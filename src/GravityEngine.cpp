@@ -558,3 +558,122 @@ const char* GravityEngine::getCollisionModeName() const {
         default: return "Unknown";
     }
 }
+
+Body* GravityEngine::getBodyById(int id) {
+    for (auto& b : bodies) {
+        if (b.id == id) return &b;
+    }
+    return nullptr;
+}
+
+const Body* GravityEngine::getBodyById(int id) const {
+    for (const auto& b : bodies) {
+        if (b.id == id) return &b;
+    }
+    return nullptr;
+}
+
+int GravityEngine::findNearestBody(Vec2 worldPos, double maxDist) const {
+    int bestId = -1;
+    double bestDistSq = maxDist * maxDist;
+
+    for (const auto& b : bodies) {
+        double dSq = b.pos.distanceSq(worldPos);
+        double effectiveThreshold = std::max(b.radius + 8.0, 16.0);
+        double thresholdSq = effectiveThreshold * effectiveThreshold;
+
+        if (dSq < thresholdSq && dSq < bestDistSq) {
+            bestDistSq = dSq;
+            bestId = b.id;
+        }
+    }
+    return bestId;
+}
+
+bool GravityEngine::deleteBody(int id) {
+    for (auto it = bodies.begin(); it != bodies.end(); ++it) {
+        if (it->id == id) {
+            bodies.erase(it);
+            computeAccelerations();
+            return true;
+        }
+    }
+    return false;
+}
+
+Vec2 GravityEngine::computeNetAccelerationOnPoint(Vec2 pos) const {
+    Vec2 netAcc{0.0, 0.0};
+    const double epsSq = epsilon * epsilon;
+
+    for (const auto& b : bodies) {
+        Vec2 r_ij = b.pos - pos;
+        double distSq = r_ij.lengthSq();
+        double softenedDist = std::sqrt(distSq + epsSq);
+        double denom = (distSq + epsSq) * softenedDist;
+
+        if (denom > 1e-12) {
+            netAcc += r_ij * (G * b.mass / denom);
+        }
+    }
+    return netAcc;
+}
+
+Vec2 GravityEngine::computeCircularOrbitVelocity(Vec2 spawnPos) const {
+    if (bodies.empty()) return Vec2{0.0, 0.0};
+
+    const Body* dominant = nullptr;
+    double maxPull = -1.0;
+
+    for (const auto& b : bodies) {
+        double d = b.pos.distance(spawnPos);
+        if (d > 1e-3) {
+            double pull = (G * b.mass) / (d * d);
+            if (pull > maxPull) {
+                maxPull = pull;
+                dominant = &b;
+            }
+        }
+    }
+
+    if (!dominant) return Vec2{0.0, 0.0};
+
+    Vec2 delta = spawnPos - dominant->pos;
+    double r = delta.length();
+    if (r < 1e-3) return Vec2{0.0, 0.0};
+
+    double vOrb = std::sqrt(G * dominant->mass / r);
+    Vec2 perp{-delta.y / r, delta.x / r};
+
+    return dominant->vel + (perp * vOrb);
+}
+
+void GravityEngine::circularizeOrbit(int bodyId) {
+    Body* body = getBodyById(bodyId);
+    if (!body || body->isStatic) return;
+
+    const Body* dominant = nullptr;
+    double maxPull = -1.0;
+
+    for (const auto& b : bodies) {
+        if (b.id == bodyId) continue;
+        double d = b.pos.distance(body->pos);
+        if (d > 1e-3) {
+            double pull = (G * b.mass) / (d * d);
+            if (pull > maxPull) {
+                maxPull = pull;
+                dominant = &b;
+            }
+        }
+    }
+
+    if (!dominant) return;
+
+    Vec2 delta = body->pos - dominant->pos;
+    double r = delta.length();
+    if (r < 1e-3) return;
+
+    double vOrb = std::sqrt(G * dominant->mass / r);
+    Vec2 perp{-delta.y / r, delta.x / r};
+
+    body->vel = dominant->vel + (perp * vOrb);
+}

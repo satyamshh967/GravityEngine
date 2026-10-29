@@ -43,6 +43,7 @@ set(HEADERS
     include/Body.hpp
     include/GravityEngine.hpp
     include/Renderer.hpp
+    include/LaunchSettings.hpp
 )
 
 add_executable(GravityEngine ${SOURCES} ${HEADERS})

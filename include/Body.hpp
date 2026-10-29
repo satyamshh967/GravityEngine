@@ -3,6 +3,8 @@
 #include "Vec2.hpp"
 #include <string>
 #include <deque>
+#include <algorithm>
+#include <cmath>
 #include <raylib.h>
 
 struct Body {
@@ -49,5 +51,49 @@ struct Body {
 
     void clearTrail() {
         trail.clear();
+    }
+
+    // Physical diagnostics and property mutators
+    [[nodiscard]] double getDensity() const {
+        constexpr double kPi = 3.14159265358979323846;
+        if (radius > 1e-6) {
+            return mass / (kPi * radius * radius);
+        }
+        return 0.0;
+    }
+
+    void setDensity(double d) {
+        constexpr double kPi = 3.14159265358979323846;
+        if (d > 1e-6) {
+            radius = std::clamp(std::sqrt(mass / (kPi * d)), 1.5, 120.0);
+        }
+    }
+
+    void setMass(double m) {
+        double d = getDensity();
+        mass = std::max(m, 0.0001);
+        if (d > 1e-6) {
+            setDensity(d); // Maintain density by adjusting radius
+        }
+    }
+
+    void setRadius(double r) {
+        radius = std::clamp(r, 1.5, 120.0);
+    }
+
+    [[nodiscard]] double getSurfaceGravity(double G, double epsilon) const {
+        double rSq = radius * radius;
+        double denom = rSq + epsilon * epsilon;
+        if (denom > 1e-12) {
+            return (G * mass) / denom;
+        }
+        return 0.0;
+    }
+
+    [[nodiscard]] double getEscapeVelocity(double G) const {
+        if (radius > 1e-6) {
+            return std::sqrt(2.0 * G * mass / radius);
+        }
+        return 0.0;
     }
 };

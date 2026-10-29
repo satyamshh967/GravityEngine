@@ -58,6 +58,15 @@ public:
     void clearBodies();
     [[nodiscard]] size_t getBodyCount() const { return bodies.size(); }
 
+    // Object querying and manipulation
+    [[nodiscard]] Body* getBodyById(int id);
+    [[nodiscard]] const Body* getBodyById(int id) const;
+    [[nodiscard]] int findNearestBody(Vec2 worldPos, double maxDist) const;
+    bool deleteBody(int id);
+    void circularizeOrbit(int bodyId);
+    [[nodiscard]] Vec2 computeCircularOrbitVelocity(Vec2 spawnPos) const;
+    [[nodiscard]] Vec2 computeNetAccelerationOnPoint(Vec2 pos) const;
+
     // Preset scene loaders
     void loadSolarSystem();
     void loadFigureEight();
