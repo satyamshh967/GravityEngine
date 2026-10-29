@@ -23,6 +23,17 @@ struct ShockwaveRing {
     float alpha{1.0f};
 };
 
+struct RoomBounds {
+    bool enabled{false};
+    double xMin{-460.0};
+    double xMax{460.0};
+    double yMin{-340.0}; // Ceiling
+    double yMax{290.0};  // Floor
+    double floorRestitution{0.82};
+    double wallRestitution{0.85};
+    double shatterVelocity{680.0}; // Impact speed threshold where bodies explosively shatter
+};
+
 enum class IntegratorType {
     VelocityVerlet,
     SymplecticEuler
@@ -43,6 +54,12 @@ public:
     CollisionMode collisionMode{CollisionMode::InelasticMerge};
     double fixedDt{0.002};
     double restitution{1.0}; // Elastic collision restitution coefficient
+
+    // Earth Room laboratory settings
+    RoomBounds roomBounds;
+    bool enableUniformGravity{false};
+    Vec2 uniformGravity{0.0, 720.0}; // Constant downward acceleration field g (Galileo: a = g)
+    bool disableMutualGravityInRoom{true};
 
     std::vector<Body> bodies;
     std::vector<DestructionParticle> destructionParticles;
@@ -66,6 +83,7 @@ public:
 
     // Collision detection and response
     void handleCollisions();
+    void handleRoomCollisions(double dt);
 
     // Destruction & Particle Systems
     void triggerDestructionExplosion(int bodyId, int particleCount = 160);
@@ -101,6 +119,7 @@ public:
     void loadSolarSystem();
     void loadFigureEight();
     void loadBinaryDisk();
+    void loadEarthRoom();
     void loadTwoBodyOrbitTest();
 
     // Helper to get string representation of current state

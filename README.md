@@ -44,6 +44,7 @@ A high-performance, modular 2D N-Body celestial mechanics and gravity simulation
   1. **Solar System:** Central star, Mercury, Venus, Earth + Moon system, Mars + Phobos, Jupiter + Galilean moons (Io & Europa), Saturn, and a high-eccentricity Halley-like comet.
   2. **Figure-8 Three-Body Orbit:** The celebrated Chenciner & Montgomery choreographed stable solution.
   3. **Binary Star System & Protoplanetary Disk:** Two massive co-orbiting stars surrounded by an accretion disk of 220+ debris particles.
+  4. **Earth Gravity Laboratory Room:** A physical containment chamber on Earth subject to a uniform downward acceleration field $\vec{g} = (0, 9.81\ \text{m/s}^2)$. Demonstrates Galileo's principle where all objects (e.g. a 500 kg anvil and a 0.5 kg apple) fall at the exact same rate independent of mass. Objects bounce elastically with restitution, and when dropped from high elevation exceeding the critical shatter threshold ($h > 320\ \text{px}$, $v > 680\ \text{px/s}$), they explode violently into debris fragments, fire sparks, and shockwaves upon floor impact.
 
 ---
 
@@ -78,6 +79,7 @@ A high-performance, modular 2D N-Body celestial mechanics and gravity simulation
 | `1` | Load **Solar System** Preset |
 | `2` | Load **Figure-8 Three-Body** Preset |
 | `3` | Load **Binary Star + Protoplanetary Disk** Preset |
+| `4` | Load **Earth Room Laboratory** (Uniform Downward $g$, Galileo Fall, Bounce & Height Shatter) |
 | `I` | Toggle Integrator (**Velocity Verlet** $\leftrightarrow$ **Symplectic Euler**) |
 | `C` | Cycle Collision Mode (**Inelastic Merge** $\rightarrow$ **Destruction Shatter** $\rightarrow$ **Elastic** $\rightarrow$ **Ghost**) |
 | `K` | Cataclysmic Destruction of selected body (Explosion + Particles + Shockwave) |

@@ -47,6 +47,7 @@ public:
 
     // Drawing functions in World Space
     void drawGrid() const;
+    void drawRoom(const GravityEngine& engine) const;
     void drawTrails(const std::vector<Body>& bodies) const;
     void drawBodies(const std::vector<Body>& bodies, int selectedId = -1) const;
     void drawVelocityVectors(const std::vector<Body>& bodies) const;

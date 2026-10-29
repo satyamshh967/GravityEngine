@@ -12,6 +12,9 @@ enum class LaunchPresetType {
     GasGiant,
     Star,
     BlackHole,
+    HeavyAnvil,
+    LightApple,
+    RubberBall,
     Custom
 };
 
@@ -95,6 +98,33 @@ struct LaunchSettings {
                 isStatic = false;
                 typeName = "Singularity";
                 trailLength = 500;
+                break;
+            case LaunchPresetType::HeavyAnvil:
+                mass = 500.0;
+                radius = 18.0;
+                density = mass / (kPi * radius * radius);
+                color = Color{240, 175, 45, 255};
+                isStatic = false;
+                typeName = "Heavy Anvil";
+                trailLength = 300;
+                break;
+            case LaunchPresetType::LightApple:
+                mass = 0.5;
+                radius = 8.0;
+                density = mass / (kPi * radius * radius);
+                color = Color{255, 60, 60, 255};
+                isStatic = false;
+                typeName = "Light Apple";
+                trailLength = 300;
+                break;
+            case LaunchPresetType::RubberBall:
+                mass = 2.0;
+                radius = 11.0;
+                density = mass / (kPi * radius * radius);
+                color = Color{0, 235, 255, 255};
+                isStatic = false;
+                typeName = "Rubber Ball";
+                trailLength = 300;
                 break;
             case LaunchPresetType::Custom:
                 typeName = "Custom";

@@ -11,29 +11,31 @@ GravityEngine::GravityEngine() {
 void GravityEngine::computeAccelerations() {
     const size_t n = bodies.size();
     for (size_t i = 0; i < n; ++i) {
-        bodies[i].acc = Vec2{0.0, 0.0};
+        bodies[i].acc = (enableUniformGravity && !bodies[i].isStatic) ? uniformGravity : Vec2{0.0, 0.0};
     }
 
-    const double epsSq = epsilon * epsilon;
+    if (!enableUniformGravity || !disableMutualGravityInRoom) {
+        const double epsSq = epsilon * epsilon;
 
-    for (size_t i = 0; i < n; ++i) {
-        for (size_t j = i + 1; j < n; ++j) {
-            Vec2 r_ij = bodies[j].pos - bodies[i].pos;
-            double distSq = r_ij.lengthSq();
-            double softenedDist = std::sqrt(distSq + epsSq);
-            double denom = (distSq + epsSq) * softenedDist;
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = i + 1; j < n; ++j) {
+                Vec2 r_ij = bodies[j].pos - bodies[i].pos;
+                double distSq = r_ij.lengthSq();
+                double softenedDist = std::sqrt(distSq + epsSq);
+                double denom = (distSq + epsSq) * softenedDist;
 
-            if (denom < 1e-12) {
-                continue;
-            }
+                if (denom < 1e-12) {
+                    continue;
+                }
 
-            double fFactor = G / denom;
+                double fFactor = G / denom;
 
-            if (!bodies[i].isStatic) {
-                bodies[i].acc += r_ij * (fFactor * bodies[j].mass);
-            }
-            if (!bodies[j].isStatic) {
-                bodies[j].acc -= r_ij * (fFactor * bodies[i].mass);
+                if (!bodies[i].isStatic) {
+                    bodies[i].acc += r_ij * (fFactor * bodies[j].mass);
+                }
+                if (!bodies[j].isStatic) {
+                    bodies[j].acc -= r_ij * (fFactor * bodies[i].mass);
+                }
             }
         }
     }
@@ -85,7 +87,7 @@ void GravityEngine::stepSymplecticEuler(double dt) {
 }
 
 void GravityEngine::step(double dt) {
-    if (bodies.empty()) return;
+    if (bodies.empty() && !roomBounds.enabled) return;
 
     if (integrator == IntegratorType::VelocityVerlet) {
         stepVelocityVerlet(dt);
@@ -98,8 +100,13 @@ void GravityEngine::step(double dt) {
         body.addTrailPoint(body.pos);
     }
 
-    // Handle collisions
+    // Handle collisions between bodies
     handleCollisions();
+
+    // Handle room boundary collisions & height-dependent shatter
+    if (roomBounds.enabled) {
+        handleRoomCollisions(dt);
+    }
 }
 
 void GravityEngine::spawnShockwave(Vec2 pos, float maxRadius, Color color, float speed) {
@@ -215,6 +222,11 @@ void GravityEngine::triggerDestructionExplosion(int bodyId, int particleCount) {
             Vec2 fragVel = pVel + Vec2{std::cos(fragAngle) * ejectSpeed, std::sin(fragAngle) * ejectSpeed};
             Vec2 fragPos = pPos + Vec2{std::cos(fragAngle) * (pRadius * 1.2), std::sin(fragAngle) * (pRadius * 1.2)};
 
+            if (roomBounds.enabled) {
+                fragPos.y = std::min(fragPos.y, roomBounds.yMax - fragRadius - 2.0);
+                if (fragVel.y > 0) fragVel.y = -std::abs(fragVel.y) * 0.6; // Deflect upward off floor
+            }
+
             int fragId = nextParticleBodyId++;
             Body frag(fragId, "Debris #" + std::to_string(fragId),
                       singleFragMass, fragRadius, fragPos, fragVel, pCol, false);
@@ -243,6 +255,23 @@ void GravityEngine::updateParticles(double dt) {
         // Subtle atmospheric / vacuum drag
         it->vel *= (1.0 - 0.15 * dt);
         it->pos += it->vel * dt;
+
+        // Bounce sparks off floor and walls in Earth room
+        if (roomBounds.enabled) {
+            if (it->pos.y >= roomBounds.yMax) {
+                it->pos.y = roomBounds.yMax;
+                it->vel.y = -it->vel.y * 0.35;
+                it->vel.x *= 0.85;
+            }
+            if (it->pos.x <= roomBounds.xMin) {
+                it->pos.x = roomBounds.xMin;
+                it->vel.x = -it->vel.x * 0.35;
+            }
+            if (it->pos.x >= roomBounds.xMax) {
+                it->pos.x = roomBounds.xMax;
+                it->vel.x = -it->vel.x * 0.35;
+            }
+        }
 
         // Fade size and color from hot incandescent to dark cool embers
         float progress = it->lifetime / it->maxLifetime;
@@ -421,6 +450,108 @@ void GravityEngine::handleCollisions() {
     }
 }
 
+void GravityEngine::handleRoomCollisions(double dt) {
+    if (!roomBounds.enabled) return;
+
+    std::vector<int> bodiesToShatter;
+
+    for (size_t i = 0; i < bodies.size(); ++i) {
+        Body& b = bodies[i];
+        if (b.isStatic) continue;
+
+        // 1. Floor collision (Bottom: yMax)
+        if (b.pos.y + b.radius >= roomBounds.yMax) {
+            double impactSpeed = std::abs(b.vel.y);
+
+            // CRITICAL HEIGHT DESTRUCTION: If impact velocity exceeds shatter threshold
+            if (impactSpeed >= roomBounds.shatterVelocity) {
+                bodiesToShatter.push_back(b.id);
+                continue;
+            }
+
+            // Normal elastic bounce
+            b.pos.y = roomBounds.yMax - b.radius;
+            b.vel.y = -b.vel.y * roomBounds.floorRestitution;
+
+            // Resting threshold & rolling friction
+            if (std::abs(b.vel.y) < 18.0) {
+                b.vel.y = 0.0;
+                b.vel.x *= (1.0 - 1.5 * dt);
+                if (std::abs(b.vel.x) < 2.0) {
+                    b.vel.x = 0.0;
+                }
+            } else {
+                b.vel.x *= 0.96; // Surface friction during bounce
+            }
+
+            // Spawn ground impact sparks
+            if (impactSpeed > 25.0) {
+                double impactEnergy = 0.5 * b.mass * impactSpeed * impactSpeed;
+                Vec2 contactPt{b.pos.x, roomBounds.yMax};
+                Vec2 normal{0.0, -1.0};
+                spawnImpactSparks(contactPt, normal, impactEnergy, b.color, Color{255, 230, 140, 255},
+                                  std::clamp(static_cast<int>(impactSpeed * 0.06), 8, 35));
+                if (impactSpeed > 320.0) {
+                    spawnShockwave(contactPt, static_cast<float>(b.radius * 2.5), Color{255, 210, 100, 220}, 150.0f);
+                }
+            }
+        }
+
+        // 2. Ceiling collision (Top: yMin)
+        if (b.pos.y - b.radius <= roomBounds.yMin) {
+            double impactSpeed = std::abs(b.vel.y);
+            if (impactSpeed >= roomBounds.shatterVelocity) {
+                bodiesToShatter.push_back(b.id);
+                continue;
+            }
+            b.pos.y = roomBounds.yMin + b.radius;
+            b.vel.y = -b.vel.y * roomBounds.floorRestitution;
+            b.vel.x *= 0.96;
+            if (impactSpeed > 30.0) {
+                spawnImpactSparks(Vec2{b.pos.x, roomBounds.yMin}, Vec2{0.0, 1.0},
+                                  0.5 * b.mass * impactSpeed * impactSpeed, b.color, RAYWHITE, 12);
+            }
+        }
+
+        // 3. Left Wall collision (xMin)
+        if (b.pos.x - b.radius <= roomBounds.xMin) {
+            double impactSpeed = std::abs(b.vel.x);
+            if (impactSpeed >= roomBounds.shatterVelocity) {
+                bodiesToShatter.push_back(b.id);
+                continue;
+            }
+            b.pos.x = roomBounds.xMin + b.radius;
+            b.vel.x = -b.vel.x * roomBounds.wallRestitution;
+            b.vel.y *= 0.98;
+            if (impactSpeed > 30.0) {
+                spawnImpactSparks(Vec2{roomBounds.xMin, b.pos.y}, Vec2{1.0, 0.0},
+                                  0.5 * b.mass * impactSpeed * impactSpeed, b.color, RAYWHITE, 15);
+            }
+        }
+
+        // 4. Right Wall collision (xMax)
+        if (b.pos.x + b.radius >= roomBounds.xMax) {
+            double impactSpeed = std::abs(b.vel.x);
+            if (impactSpeed >= roomBounds.shatterVelocity) {
+                bodiesToShatter.push_back(b.id);
+                continue;
+            }
+            b.pos.x = roomBounds.xMax - b.radius;
+            b.vel.x = -b.vel.x * roomBounds.wallRestitution;
+            b.vel.y *= 0.98;
+            if (impactSpeed > 30.0) {
+                spawnImpactSparks(Vec2{roomBounds.xMax, b.pos.y}, Vec2{-1.0, 0.0},
+                                  0.5 * b.mass * impactSpeed * impactSpeed, b.color, RAYWHITE, 15);
+            }
+        }
+    }
+
+    // Trigger explosive particle destruction on bodies exceeding shatter speed
+    for (int id : bodiesToShatter) {
+        triggerDestructionExplosion(id, 140);
+    }
+}
+
 double GravityEngine::computeKineticEnergy() const {
     double totalK = 0.0;
     for (const auto& body : bodies) {
@@ -433,15 +564,28 @@ double GravityEngine::computeKineticEnergy() const {
 
 double GravityEngine::computePotentialEnergy() const {
     double totalU = 0.0;
-    const size_t n = bodies.size();
-    const double epsSq = epsilon * epsilon;
 
-    for (size_t i = 0; i < n; ++i) {
-        for (size_t j = i + 1; j < n; ++j) {
-            double distSq = bodies[i].pos.distanceSq(bodies[j].pos);
-            double softenedDist = std::sqrt(distSq + epsSq);
-            if (softenedDist > 1e-12) {
-                totalU -= (G * bodies[i].mass * bodies[j].mass) / softenedDist;
+    // Potential energy under uniform downward gravity field: U = sum(m * g * h) where h is height above floor
+    if (enableUniformGravity) {
+        for (const auto& body : bodies) {
+            if (!body.isStatic) {
+                double h = roomBounds.yMax - body.pos.y;
+                totalU += body.mass * uniformGravity.y * h;
+            }
+        }
+    }
+
+    if (!enableUniformGravity || !disableMutualGravityInRoom) {
+        const size_t n = bodies.size();
+        const double epsSq = epsilon * epsilon;
+
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = i + 1; j < n; ++j) {
+                double distSq = bodies[i].pos.distanceSq(bodies[j].pos);
+                double softenedDist = std::sqrt(distSq + epsSq);
+                if (softenedDist > 1e-12) {
+                    totalU -= (G * bodies[i].mass * bodies[j].mass) / softenedDist;
+                }
             }
         }
     }
@@ -478,19 +622,30 @@ std::vector<Vec2> GravityEngine::predictTrajectory(
     for (int step = 0; step < steps; ++step) {
         points.push_back(p);
 
-        Vec2 acc{0.0, 0.0};
-        for (const auto& body : bodies) {
-            Vec2 r_vec = body.pos - p;
-            double distSq = r_vec.lengthSq();
-            double softenedDist = std::sqrt(distSq + epsSq);
-            double denom = (distSq + epsSq) * softenedDist;
+        Vec2 acc = enableUniformGravity ? uniformGravity : Vec2{0.0, 0.0};
 
-            if (denom > 1e-12) {
-                acc += r_vec * (G * body.mass / denom);
+        if (!enableUniformGravity || !disableMutualGravityInRoom) {
+            for (const auto& body : bodies) {
+                Vec2 r_vec = body.pos - p;
+                double distSq = r_vec.lengthSq();
+                double softenedDist = std::sqrt(distSq + epsSq);
+                double denom = (distSq + epsSq) * softenedDist;
+
+                if (denom > 1e-12) {
+                    acc += r_vec * (G * body.mass / denom);
+                }
+
+                // If close enough to hit body, terminate trajectory
+                if (distSq < (body.radius * body.radius)) {
+                    return points;
+                }
             }
+        }
 
-            // If close enough to hit body, terminate trajectory
-            if (distSq < (body.radius * body.radius)) {
+        // In Earth room, terminate trajectory when hitting floor or walls
+        if (roomBounds.enabled) {
+            if (p.y >= roomBounds.yMax || p.y <= roomBounds.yMin ||
+                p.x <= roomBounds.xMin || p.x >= roomBounds.xMax) {
                 return points;
             }
         }
@@ -515,6 +670,8 @@ void GravityEngine::clearBodies() {
 
 void GravityEngine::loadSolarSystem() {
     clearBodies();
+    roomBounds.enabled = false;
+    enableUniformGravity = false;
     G = 1.0;
     epsilon = 5.0;
 
@@ -611,6 +768,8 @@ void GravityEngine::loadSolarSystem() {
 
 void GravityEngine::loadFigureEight() {
     clearBodies();
+    roomBounds.enabled = false;
+    enableUniformGravity = false;
     G = 1.0;
     epsilon = 0.01;
 
@@ -656,6 +815,8 @@ void GravityEngine::loadFigureEight() {
 
 void GravityEngine::loadBinaryDisk() {
     clearBodies();
+    roomBounds.enabled = false;
+    enableUniformGravity = false;
     G = 1.0;
     epsilon = 10.0;
 
@@ -719,8 +880,76 @@ void GravityEngine::loadBinaryDisk() {
     resetInitialEnergy();
 }
 
+void GravityEngine::loadEarthRoom() {
+    clearBodies();
+    G = 1.0;
+    epsilon = 5.0;
+    integrator = IntegratorType::VelocityVerlet;
+    collisionMode = CollisionMode::Elastic; // Elastic bounces inside room
+
+    roomBounds.enabled = true;
+    roomBounds.xMin = -460.0;
+    roomBounds.xMax = 460.0;
+    roomBounds.yMin = -340.0; // Ceiling
+    roomBounds.yMax = 290.0;  // Floor
+    roomBounds.floorRestitution = 0.82;
+    roomBounds.wallRestitution = 0.85;
+    roomBounds.shatterVelocity = 680.0; // Fall from height > 320px hits with > 680 px/s and explodes
+
+    enableUniformGravity = true;
+    uniformGravity = Vec2{0.0, 720.0}; // Downward uniform acceleration field g (Galileo: a = g)
+    disableMutualGravityInRoom = true;
+
+    int nextId = 1;
+
+    // 1. Galileo Falling Bodies Pair:
+    // Both dropped side-by-side from high altitude (y = -220, height = 510px).
+    // Constant downward acceleration a = g = 720 px/s^2 (Galileo's Equivalence: independent of mass).
+    // Terminal impact velocity v = sqrt(2 * 720 * 510) = 857 px/s > 680 px/s (Shatter Threshold)
+    // -> BOTH EXPLODE INTO DEBRIS PARTICLES ON THE FLOOR!
+    Body anvil(nextId++, "Heavy Anvil (m=500)", 500.0, 18.0,
+               Vec2{-180.0, -220.0}, Vec2{0.0, 0.0},
+               Color{240, 175, 45, 255}, false);
+    anvil.maxTrailPoints = 300;
+    bodies.push_back(anvil);
+
+    Body apple(nextId++, "Light Apple (m=0.5)", 0.5, 8.0,
+               Vec2{-100.0, -220.0}, Vec2{0.0, 0.0},
+               Color{255, 60, 60, 255}, false);
+    apple.maxTrailPoints = 300;
+    bodies.push_back(apple);
+
+    // 2. Safe Bouncing Rubber Ball:
+    // Released from low altitude (y = 130, height = 160px).
+    // Terminal velocity v = sqrt(2 * 720 * 160) = 480 px/s < 680 px/s -> BOUNCES SAFELY!
+    Body rubberBall(nextId++, "Rubber Ball (m=2)", 2.0, 11.0,
+                    Vec2{90.0, 130.0}, Vec2{0.0, 0.0},
+                    Color{0, 235, 255, 255}, false);
+    rubberBall.maxTrailPoints = 300;
+    bodies.push_back(rubberBall);
+
+    // 3. Lateral Projectile Tennis Ball (Demonstrates wall and floor bouncing):
+    Body tennisBall(nextId++, "Tennis Ball (m=1)", 1.0, 9.0,
+                    Vec2{0.0, 90.0}, Vec2{140.0, -60.0},
+                    Color{180, 255, 40, 255}, false);
+    tennisBall.maxTrailPoints = 350;
+    bodies.push_back(tennisBall);
+
+    // 4. Heavy Bowling Ball (Heavy mass, low drop height: y = 110, height = 180px -> Bounces!):
+    Body bowlingBall(nextId++, "Bowling Ball (m=40)", 40.0, 15.0,
+                     Vec2{220.0, 110.0}, Vec2{0.0, 0.0},
+                     Color{130, 150, 190, 255}, false);
+    bowlingBall.maxTrailPoints = 250;
+    bodies.push_back(bowlingBall);
+
+    computeAccelerations();
+    resetInitialEnergy();
+}
+
 void GravityEngine::loadTwoBodyOrbitTest() {
     clearBodies();
+    roomBounds.enabled = false;
+    enableUniformGravity = false;
     G = 1.0;
     epsilon = 0.0;
 
@@ -805,17 +1034,19 @@ bool GravityEngine::deleteBody(int id) {
 }
 
 Vec2 GravityEngine::computeNetAccelerationOnPoint(Vec2 pos) const {
-    Vec2 netAcc{0.0, 0.0};
-    const double epsSq = epsilon * epsilon;
+    Vec2 netAcc = enableUniformGravity ? uniformGravity : Vec2{0.0, 0.0};
+    if (!enableUniformGravity || !disableMutualGravityInRoom) {
+        const double epsSq = epsilon * epsilon;
 
-    for (const auto& b : bodies) {
-        Vec2 r_ij = b.pos - pos;
-        double distSq = r_ij.lengthSq();
-        double softenedDist = std::sqrt(distSq + epsSq);
-        double denom = (distSq + epsSq) * softenedDist;
+        for (const auto& b : bodies) {
+            Vec2 r_ij = b.pos - pos;
+            double distSq = r_ij.lengthSq();
+            double softenedDist = std::sqrt(distSq + epsSq);
+            double denom = (distSq + epsSq) * softenedDist;
 
-        if (denom > 1e-12) {
-            netAcc += r_ij * (G * b.mass / denom);
+            if (denom > 1e-12) {
+                netAcc += r_ij * (G * b.mass / denom);
+            }
         }
     }
     return netAcc;

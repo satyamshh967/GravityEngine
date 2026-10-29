@@ -125,6 +125,97 @@ void Renderer::drawGrid() const {
     }
 }
 
+void Renderer::drawRoom(const GravityEngine& engine) const {
+    if (!engine.roomBounds.enabled) return;
+
+    const auto& rb = engine.roomBounds;
+    float rx = static_cast<float>(rb.xMin);
+    float ry = static_cast<float>(rb.yMin);
+    float rw = static_cast<float>(rb.xMax - rb.xMin);
+    float rh = static_cast<float>(rb.yMax - rb.yMin);
+    float floorY = static_cast<float>(rb.yMax);
+    float ceilY = static_cast<float>(rb.yMin);
+
+    // 1. Lab Room Interior Chamber Background with soft tint
+    DrawRectangleRec(Rectangle{rx, ry, rw, rh}, Color{12, 16, 26, 225});
+
+    // 2. Room Grid Lines (Vertical & Horizontal every 50px)
+    for (float x = rx + 50.0f; x < rb.xMax; x += 50.0f) {
+        DrawLineV(Vector2{x, ry}, Vector2{x, floorY}, Color{30, 42, 65, 80});
+    }
+    for (float y = ry + 50.0f; y < floorY; y += 50.0f) {
+        DrawLineV(Vector2{rx, y}, Vector2{static_cast<float>(rb.xMax), y}, Color{30, 42, 65, 80});
+    }
+
+    // 3. Critical Shatter Height Line (Red Dashed Line)
+    // h_crit = v_shatter^2 / (2 * g)
+    double gy = (std::abs(engine.uniformGravity.y) > 1e-3) ? std::abs(engine.uniformGravity.y) : 720.0;
+    float critY = static_cast<float>(rb.yMax - (rb.shatterVelocity * rb.shatterVelocity) / (2.0 * gy));
+    if (critY > ry && critY < floorY) {
+        for (float x = rx + 8.0f; x < rb.xMax - 8.0f; x += 22.0f) {
+            DrawLineEx(Vector2{x, critY}, Vector2{x + 13.0f, critY}, 2.0f, Color{255, 75, 75, 190});
+        }
+        drawText("--- CRITICAL SHATTER HEIGHT (Fall from above this line shatters on impact) ---",
+                 rx + 25.0f, critY - 18.0f, 13.0f, Color{255, 95, 95, 230}, true);
+    }
+
+    // 4. Safe Bounce Zone Line (Green Dashed Line at 180px above floor)
+    float safeY = floorY - 180.0f;
+    if (safeY > ry && safeY < floorY) {
+        for (float x = rx + 8.0f; x < rb.xMax - 8.0f; x += 22.0f) {
+            DrawLineEx(Vector2{x, safeY}, Vector2{x + 13.0f, safeY}, 2.0f, Color{60, 225, 110, 160});
+        }
+        drawText("--- SAFE BOUNCE ZONE (Fall from below this line bounces harmlessly) ---",
+                 rx + 25.0f, safeY - 18.0f, 13.0f, Color{80, 245, 130, 210}, true);
+    }
+
+    // 5. Heavy Reinforced Steel Floor Slab at yMax
+    DrawRectangleRec(Rectangle{rx - 30.0f, floorY, rw + 60.0f, 36.0f}, Color{35, 42, 58, 255});
+    DrawLineEx(Vector2{rx - 30.0f, floorY}, Vector2{rx + rw + 30.0f, floorY}, 3.5f, Color{0, 230, 255, 240});
+
+    // Floor hazard warning stripes (yellow / dark gray)
+    for (float hx = rx - 20.0f; hx < rb.xMax + 20.0f; hx += 32.0f) {
+        DrawLineEx(Vector2{hx, floorY + 4.0f}, Vector2{hx + 16.0f, floorY + 32.0f}, 3.5f, Color{255, 205, 30, 190});
+    }
+    drawText("REINFORCED STEEL IMPACT FLOOR [Restitution: 82% | Earth g: 9.81 m/s²]",
+             rx + 15.0f, floorY + 10.0f, 13.0f, Color{235, 245, 255, 240}, true);
+
+    // 6. Ceiling Beam at yMin
+    DrawRectangleRec(Rectangle{rx - 30.0f, ceilY - 28.0f, rw + 60.0f, 28.0f}, Color{28, 34, 48, 255});
+    DrawLineEx(Vector2{rx - 30.0f, ceilY}, Vector2{rx + rw + 30.0f, ceilY}, 2.5f, Color{110, 160, 215, 230});
+
+    // Overhead spotlights
+    for (float lx = rx + 140.0f; lx < rb.xMax - 80.0f; lx += 220.0f) {
+        DrawCircleV(Vector2{lx, ceilY}, 6.0f, Color{255, 240, 200, 255});
+        DrawTriangle(Vector2{lx, ceilY},
+                     Vector2{lx - 70.0f, ceilY + 150.0f},
+                     Vector2{lx + 70.0f, ceilY + 150.0f},
+                     Color{255, 230, 180, 14});
+    }
+
+    // 7. Left & Right Reinforced Chamber Walls with Height Ruler
+    DrawRectangleRec(Rectangle{rx - 30.0f, ceilY, 30.0f, rh}, Color{26, 32, 46, 255});
+    DrawLineEx(Vector2{rx, ceilY}, Vector2{rx, floorY}, 3.0f, Color{110, 150, 200, 230});
+
+    DrawRectangleRec(Rectangle{static_cast<float>(rb.xMax), ceilY, 30.0f, rh}, Color{26, 32, 46, 255});
+    DrawLineEx(Vector2{static_cast<float>(rb.xMax), ceilY}, Vector2{static_cast<float>(rb.xMax), floorY}, 3.0f, Color{110, 150, 200, 230});
+
+    // Height ruler ticks on left wall: every 50px = 5 meters
+    int meter = 0;
+    for (float my = floorY; my >= ceilY; my -= 50.0f) {
+        DrawLineEx(Vector2{rx - 14.0f, my}, Vector2{rx, my}, 2.0f, Color{160, 190, 225, 220});
+        drawText(TextFormat("%dm", meter), rx - 42.0f, my - 6.0f, 11.0f, Color{190, 210, 235, 220});
+        meter += 5;
+    }
+
+    // 8. Top Lab Room Title Banner
+    drawText("EARTH GRAVITY EXPERIMENT LABORATORY", rx + 18.0f, ry + 16.0f, 18.0f, GOLD, true);
+    drawText("Galileo Equivalence: a = g (All masses fall at exact same acceleration)",
+             rx + 18.0f, ry + 42.0f, 13.0f, SKYBLUE, true);
+    drawText("Constant Downward Field: g = 9.81 m/s² | High Fall Velocity > 680 px/s -> Particle Shatter",
+             rx + 18.0f, ry + 62.0f, 12.0f, Color{210, 225, 245, 220});
+}
+
 void Renderer::drawTrails(const std::vector<Body>& bodies) const {
     if (!showTrails) return;
 
@@ -331,12 +422,16 @@ void Renderer::DrawCard(Rectangle rect, const char* title, Color titleCol) const
 void Renderer::drawHUD(const GravityEngine& engine, float timeScale, bool isPaused,
                       const LaunchSettings& launchSettings, int /*screenWidth*/, int screenHeight) const {
     // 1. Top-Left Diagnostics Panel (Crisp TTF Text)
-    int panelW = 350;
+    int panelW = 360;
     int panelH = 280;
     DrawRectangleRounded(Rectangle{15, 15, static_cast<float>(panelW), static_cast<float>(panelH)}, 0.08f, 6, Fade(BLACK, 0.86f));
     DrawRectangleRoundedLines(Rectangle{15, 15, static_cast<float>(panelW), static_cast<float>(panelH)}, 0.08f, 6, Fade(SKYBLUE, 0.65f));
 
-    drawText("2D N-BODY GRAVITY ENGINE", 28.0f, 24.0f, 17.0f, SKYBLUE, true);
+    if (engine.roomBounds.enabled) {
+        drawText("EARTH GRAVITY LABORATORY", 28.0f, 24.0f, 16.0f, GOLD, true);
+    } else {
+        drawText("2D N-BODY GRAVITY ENGINE", 28.0f, 24.0f, 17.0f, SKYBLUE, true);
+    }
     DrawLine(28, 48, 28 + panelW - 26, 48, Fade(DARKGRAY, 0.5f));
 
     float y = 58.0f;
@@ -388,13 +483,13 @@ void Renderer::drawHUD(const GravityEngine& engine, float timeScale, bool isPaus
     drawText(TextFormat("%.2fx %s", camera.zoom, (followedBodyId != -1 ? "[LOCKED]" : "")), 165.0f, y, 14.0f, RAYWHITE);
 
     // 2. Bottom-Left Preset & Controls Cheat-sheet
-    int cheatW = 480;
+    int cheatW = 540;
     int cheatH = 105;
     float cheatY = static_cast<float>(screenHeight - cheatH - 15);
     DrawRectangleRounded(Rectangle{15, cheatY, static_cast<float>(cheatW), static_cast<float>(cheatH)}, 0.08f, 6, Fade(BLACK, 0.86f));
     DrawRectangleRoundedLines(Rectangle{15, cheatY, static_cast<float>(cheatW), static_cast<float>(cheatH)}, 0.08f, 6, Fade(GRAY, 0.4f));
 
-    drawText("PRESETS: [1] Solar System  [2] Figure-8 Orbit  [3] Binary Disk", 26.0f, cheatY + 14.0f, 13.0f, GOLD, true);
+    drawText("PRESETS: [1] Solar  [2] Figure-8  [3] Binary Disk  [4] Earth Lab Room", 26.0f, cheatY + 14.0f, 13.0f, GOLD, true);
     drawText("CONTROLS:", 26.0f, cheatY + 36.0f, 13.0f, SKYBLUE, true);
     drawText("Click Body: Inspect in Sidebar | Drag: Slingshot | [H] Toggle Sidebar", 26.0f, cheatY + 56.0f, 13.0f, RAYWHITE);
     drawText("[TAB] Spawner Tab | [C] Collision Mode | [T] Trails | [V] Vectors | [X] Clear", 26.0f, cheatY + 76.0f, 13.0f, RAYWHITE);
@@ -461,24 +556,80 @@ void Renderer::drawSidebar(Body* selectedBody, GravityEngine& engine, LaunchSett
     // --- TAB 1: OBJECT INSPECTOR ---
     if (activeTab == SidebarTab::Inspector) {
         if (!selectedBody) {
-            // Spacious Empty State
-            y += 80.0f;
-            drawText("NO CELESTIAL OBJECT SELECTED", xStart + 35.0f, y, 19.0f, GOLD, true);
-            y += 45.0f;
+            // Scene Presets Selection Card
+            float sceneCardH = 110.0f;
+            DrawCard(Rectangle{xStart, y, contentW, sceneCardH}, "SCENE PRESETS", GOLD);
+            float scy = y + 42.0f;
+            float scBtnW = (contentW - 36.0f - 24.0f) / 4.0f;
 
-            DrawCard(Rectangle{xStart, y, contentW, 260.0f}, "HOW TO USE THE INSPECTOR", SKYBLUE);
-            float ey = y + 48.0f;
-            drawText("1. Click any planet, star, or debris in space to select it.", xStart + 22.0f, ey, 15.0f, RAYWHITE);
-            ey += 32.0f;
-            drawText("2. View surface gravity pull, escape velocity & real-time kinematics.", xStart + 22.0f, ey, 15.0f, RAYWHITE);
-            ey += 32.0f;
-            drawText("3. Adjust mass, radius, and density with tactile steppers.", xStart + 22.0f, ey, 15.0f, RAYWHITE);
-            ey += 32.0f;
-            drawText("4. Lock camera tracking, freeze velocity, or circularize orbit.", xStart + 22.0f, ey, 15.0f, RAYWHITE);
-            ey += 32.0f;
-            drawText("5. Trigger catastrophic destruction physics with particle explosion.", xStart + 22.0f, ey, 15.0f, RAYWHITE);
+            if (DrawButton(Rectangle{xStart + 18.0f, scy, scBtnW, 44.0f}, "[1] Solar",
+                           Color{26, 38, 56, 230}, !engine.roomBounds.enabled ? GOLD : RAYWHITE, false, 12.0f)) {
+                engine.loadSolarSystem();
+                resetCamera(screenWidth, screenHeight);
+            }
+            if (DrawButton(Rectangle{xStart + 18.0f + (scBtnW + 8.0f), scy, scBtnW, 44.0f}, "[2] Fig-8",
+                           Color{26, 38, 56, 230}, RAYWHITE, false, 12.0f)) {
+                engine.loadFigureEight();
+                resetCamera(screenWidth, screenHeight);
+            }
+            if (DrawButton(Rectangle{xStart + 18.0f + 2 * (scBtnW + 8.0f), scy, scBtnW, 44.0f}, "[3] Binary",
+                           Color{26, 38, 56, 230}, RAYWHITE, false, 12.0f)) {
+                engine.loadBinaryDisk();
+                resetCamera(screenWidth, screenHeight);
+            }
+            if (DrawButton(Rectangle{xStart + 18.0f + 3 * (scBtnW + 8.0f), scy, scBtnW, 44.0f}, "[4] Earth Lab",
+                           Color{26, 48, 70, 230}, engine.roomBounds.enabled ? LIME : SKYBLUE, engine.roomBounds.enabled, 11.5f)) {
+                engine.loadEarthRoom();
+                resetCamera(screenWidth, screenHeight);
+                camera.target = Vector2{0.0f, -20.0f};
+                camera.zoom = 1.05f;
+            }
 
-            y += 300.0f;
+            y += sceneCardH + gap;
+
+            if (engine.roomBounds.enabled) {
+                // Earth Gravity Lab Info & Actions Card
+                float labCardH = 290.0f;
+                DrawCard(Rectangle{xStart, y, contentW, labCardH}, "EARTH GRAVITY LABORATORY", LIME);
+                float ly = y + 42.0f;
+
+                drawText("Downward Acceleration field:", xStart + 20.0f, ly, 14.0f, LIGHTGRAY);
+                drawText("a = g = 9.81 m/s2 (Mass-Independent)", xStart + 20.0f, ly + 20.0f, 15.0f, GOLD, true);
+                ly += 46.0f;
+
+                drawText("Critical Shatter Height:", xStart + 20.0f, ly, 14.0f, LIGHTGRAY);
+                drawText("Fall > 320px -> Explodes on floor!", xStart + 20.0f, ly + 20.0f, 14.0f, RED, true);
+                ly += 46.0f;
+
+                drawText("Floor Bounce Restitution:", xStart + 20.0f, ly, 14.0f, LIGHTGRAY);
+                drawText("82% Elastic Rebound (Safe below 320px)", xStart + 20.0f, ly + 20.0f, 14.0f, SKYBLUE);
+                ly += 48.0f;
+
+                float labActW = (contentW - 36.0f - 12.0f) * 0.5f;
+                if (DrawButton(Rectangle{xStart + 18.0f, ly, labActW, 40.0f}, "Reset Galileo Pair", Color{30, 52, 30, 240}, LIME, false, 12.0f)) {
+                    engine.loadEarthRoom();
+                }
+                if (DrawButton(Rectangle{xStart + 18.0f + labActW + 12.0f, ly, labActW, 40.0f}, "Clear Room", Color{60, 25, 25, 240}, RED, false, 12.0f)) {
+                    engine.clearBodies();
+                }
+
+                y += labCardH + gap;
+            } else {
+                DrawCard(Rectangle{xStart, y, contentW, 260.0f}, "HOW TO USE THE INSPECTOR", SKYBLUE);
+                float ey = y + 48.0f;
+                drawText("1. Click any planet, star, or debris in space to select it.", xStart + 22.0f, ey, 15.0f, RAYWHITE);
+                ey += 32.0f;
+                drawText("2. View surface gravity pull, escape velocity & real-time kinematics.", xStart + 22.0f, ey, 15.0f, RAYWHITE);
+                ey += 32.0f;
+                drawText("3. Adjust mass, radius, and density with tactile steppers.", xStart + 22.0f, ey, 15.0f, RAYWHITE);
+                ey += 32.0f;
+                drawText("4. Lock camera tracking, freeze velocity, or circularize orbit.", xStart + 22.0f, ey, 15.0f, RAYWHITE);
+                ey += 32.0f;
+                drawText("5. Trigger catastrophic destruction physics with particle explosion.", xStart + 22.0f, ey, 15.0f, RAYWHITE);
+
+                y += 280.0f;
+            }
+
             Rectangle switchTabBtn{xStart + 50.0f, y, contentW - 100.0f, 44.0f};
             if (DrawButton(switchTabBtn, "OPEN SPAWNER SETTINGS [TAB]", Color{26, 48, 80, 230}, SKYBLUE, false, 14.0f)) {
                 activeTab = SidebarTab::Spawner;
@@ -674,37 +825,98 @@ void Renderer::drawSidebar(Body* selectedBody, GravityEngine& engine, LaunchSett
     }
     // --- TAB 2: SPAWNER SETTINGS (Spacious & Full Height) ---
     else if (activeTab == SidebarTab::Spawner) {
+        // Section 0: Scene Presets Card
+        float sceneCardH = 95.0f;
+        DrawCard(Rectangle{xStart, y, contentW, sceneCardH}, "SCENE PRESETS", GOLD);
+        float scy = y + 38.0f;
+        float scBtnW = (contentW - 36.0f - 24.0f) / 4.0f;
+
+        if (DrawButton(Rectangle{xStart + 18.0f, scy, scBtnW, 42.0f}, "[1] Solar",
+                       Color{26, 38, 56, 230}, !engine.roomBounds.enabled ? GOLD : RAYWHITE, false, 12.0f)) {
+            engine.loadSolarSystem();
+            resetCamera(screenWidth, screenHeight);
+        }
+        if (DrawButton(Rectangle{xStart + 18.0f + (scBtnW + 8.0f), scy, scBtnW, 42.0f}, "[2] Fig-8",
+                       Color{26, 38, 56, 230}, RAYWHITE, false, 12.0f)) {
+            engine.loadFigureEight();
+            resetCamera(screenWidth, screenHeight);
+        }
+        if (DrawButton(Rectangle{xStart + 18.0f + 2 * (scBtnW + 8.0f), scy, scBtnW, 42.0f}, "[3] Binary",
+                       Color{26, 38, 56, 230}, RAYWHITE, false, 12.0f)) {
+            engine.loadBinaryDisk();
+            resetCamera(screenWidth, screenHeight);
+        }
+        if (DrawButton(Rectangle{xStart + 18.0f + 3 * (scBtnW + 8.0f), scy, scBtnW, 42.0f}, "[4] Earth Lab",
+                       Color{26, 48, 70, 230}, engine.roomBounds.enabled ? LIME : SKYBLUE, engine.roomBounds.enabled, 11.5f)) {
+            engine.loadEarthRoom();
+            resetCamera(screenWidth, screenHeight);
+            camera.target = Vector2{0.0f, -20.0f};
+            camera.zoom = 1.05f;
+        }
+
+        y += sceneCardH + gap;
+
         // Section 1: Payload Presets Card
         float card1H = 160.0f;
-        DrawCard(Rectangle{xStart, y, contentW, card1H}, "CELESTIAL PAYLOAD PRESETS", GOLD);
+        DrawCard(Rectangle{xStart, y, contentW, card1H},
+                 engine.roomBounds.enabled ? "LAB EXPERIMENT PAYLOADS" : "CELESTIAL PAYLOAD PRESETS", GOLD);
         float py = y + 42.0f;
 
         float pBtnW = (contentW - 36.0f - 16.0f) / 3.0f;
-        if (DrawButton(Rectangle{xStart + 18.0f, py, pBtnW, 42.0f}, "Asteroid", Color{26, 38, 56, 230}, RAYWHITE,
-                       launchSettings.presetType == LaunchPresetType::Asteroid, 14.0f)) {
-            launchSettings.applyPreset(LaunchPresetType::Asteroid);
-        }
-        if (DrawButton(Rectangle{xStart + 18.0f + (pBtnW + 8.0f), py, pBtnW, 42.0f}, "Moon", Color{26, 38, 56, 230}, RAYWHITE,
-                       launchSettings.presetType == LaunchPresetType::Moon, 14.0f)) {
-            launchSettings.applyPreset(LaunchPresetType::Moon);
-        }
-        if (DrawButton(Rectangle{xStart + 18.0f + 2 * (pBtnW + 8.0f), py, pBtnW, 42.0f}, "Planet", Color{26, 38, 56, 230}, RAYWHITE,
-                       launchSettings.presetType == LaunchPresetType::Terrestrial, 14.0f)) {
-            launchSettings.applyPreset(LaunchPresetType::Terrestrial);
-        }
-        py += 50.0f;
+        if (engine.roomBounds.enabled) {
+            if (DrawButton(Rectangle{xStart + 18.0f, py, pBtnW, 42.0f}, "Heavy Anvil", Color{26, 38, 56, 230}, RAYWHITE,
+                           launchSettings.presetType == LaunchPresetType::HeavyAnvil, 13.0f)) {
+                launchSettings.applyPreset(LaunchPresetType::HeavyAnvil);
+            }
+            if (DrawButton(Rectangle{xStart + 18.0f + (pBtnW + 8.0f), py, pBtnW, 42.0f}, "Light Apple", Color{26, 38, 56, 230}, RAYWHITE,
+                           launchSettings.presetType == LaunchPresetType::LightApple, 13.0f)) {
+                launchSettings.applyPreset(LaunchPresetType::LightApple);
+            }
+            if (DrawButton(Rectangle{xStart + 18.0f + 2 * (pBtnW + 8.0f), py, pBtnW, 42.0f}, "Rubber Ball", Color{26, 38, 56, 230}, RAYWHITE,
+                           launchSettings.presetType == LaunchPresetType::RubberBall, 13.0f)) {
+                launchSettings.applyPreset(LaunchPresetType::RubberBall);
+            }
+            py += 50.0f;
 
-        if (DrawButton(Rectangle{xStart + 18.0f, py, pBtnW, 42.0f}, "Gas Giant", Color{26, 38, 56, 230}, RAYWHITE,
-                       launchSettings.presetType == LaunchPresetType::GasGiant, 14.0f)) {
-            launchSettings.applyPreset(LaunchPresetType::GasGiant);
-        }
-        if (DrawButton(Rectangle{xStart + 18.0f + (pBtnW + 8.0f), py, pBtnW, 42.0f}, "Star", Color{26, 38, 56, 230}, RAYWHITE,
-                       launchSettings.presetType == LaunchPresetType::Star, 14.0f)) {
-            launchSettings.applyPreset(LaunchPresetType::Star);
-        }
-        if (DrawButton(Rectangle{xStart + 18.0f + 2 * (pBtnW + 8.0f), py, pBtnW, 42.0f}, "Singularity", Color{26, 38, 56, 230}, RAYWHITE,
-                       launchSettings.presetType == LaunchPresetType::BlackHole, 14.0f)) {
-            launchSettings.applyPreset(LaunchPresetType::BlackHole);
+            if (DrawButton(Rectangle{xStart + 18.0f, py, pBtnW, 42.0f}, "Asteroid", Color{26, 38, 56, 230}, RAYWHITE,
+                           launchSettings.presetType == LaunchPresetType::Asteroid, 13.0f)) {
+                launchSettings.applyPreset(LaunchPresetType::Asteroid);
+            }
+            if (DrawButton(Rectangle{xStart + 18.0f + (pBtnW + 8.0f), py, pBtnW, 42.0f}, "Planet", Color{26, 38, 56, 230}, RAYWHITE,
+                           launchSettings.presetType == LaunchPresetType::Terrestrial, 13.0f)) {
+                launchSettings.applyPreset(LaunchPresetType::Terrestrial);
+            }
+            if (DrawButton(Rectangle{xStart + 18.0f + 2 * (pBtnW + 8.0f), py, pBtnW, 42.0f}, "Star", Color{26, 38, 56, 230}, RAYWHITE,
+                           launchSettings.presetType == LaunchPresetType::Star, 13.0f)) {
+                launchSettings.applyPreset(LaunchPresetType::Star);
+            }
+        } else {
+            if (DrawButton(Rectangle{xStart + 18.0f, py, pBtnW, 42.0f}, "Asteroid", Color{26, 38, 56, 230}, RAYWHITE,
+                           launchSettings.presetType == LaunchPresetType::Asteroid, 14.0f)) {
+                launchSettings.applyPreset(LaunchPresetType::Asteroid);
+            }
+            if (DrawButton(Rectangle{xStart + 18.0f + (pBtnW + 8.0f), py, pBtnW, 42.0f}, "Moon", Color{26, 38, 56, 230}, RAYWHITE,
+                           launchSettings.presetType == LaunchPresetType::Moon, 14.0f)) {
+                launchSettings.applyPreset(LaunchPresetType::Moon);
+            }
+            if (DrawButton(Rectangle{xStart + 18.0f + 2 * (pBtnW + 8.0f), py, pBtnW, 42.0f}, "Planet", Color{26, 38, 56, 230}, RAYWHITE,
+                           launchSettings.presetType == LaunchPresetType::Terrestrial, 14.0f)) {
+                launchSettings.applyPreset(LaunchPresetType::Terrestrial);
+            }
+            py += 50.0f;
+
+            if (DrawButton(Rectangle{xStart + 18.0f, py, pBtnW, 42.0f}, "Gas Giant", Color{26, 38, 56, 230}, RAYWHITE,
+                           launchSettings.presetType == LaunchPresetType::GasGiant, 14.0f)) {
+                launchSettings.applyPreset(LaunchPresetType::GasGiant);
+            }
+            if (DrawButton(Rectangle{xStart + 18.0f + (pBtnW + 8.0f), py, pBtnW, 42.0f}, "Star", Color{26, 38, 56, 230}, RAYWHITE,
+                           launchSettings.presetType == LaunchPresetType::Star, 14.0f)) {
+                launchSettings.applyPreset(LaunchPresetType::Star);
+            }
+            if (DrawButton(Rectangle{xStart + 18.0f + 2 * (pBtnW + 8.0f), py, pBtnW, 42.0f}, "Singularity", Color{26, 38, 56, 230}, RAYWHITE,
+                           launchSettings.presetType == LaunchPresetType::BlackHole, 14.0f)) {
+                launchSettings.applyPreset(LaunchPresetType::BlackHole);
+            }
         }
 
         y += card1H + gap;
@@ -718,8 +930,9 @@ void Renderer::drawSidebar(Body* selectedBody, GravityEngine& engine, LaunchSett
                        launchSettings.spawnMode == LaunchSpawnMode::Slingshot, 13.0f)) {
             launchSettings.spawnMode = LaunchSpawnMode::Slingshot;
         }
-        if (DrawButton(Rectangle{xStart + 18.0f + (pBtnW + 8.0f), my, pBtnW, 44.0f}, "Auto Orbit (Click)", Color{26, 44, 70, 230}, RAYWHITE,
-                       launchSettings.spawnMode == LaunchSpawnMode::CircularOrbit, 13.0f)) {
+        const char* midModeName = engine.roomBounds.enabled ? "Drop / Free Fall" : "Auto Orbit (Click)";
+        if (DrawButton(Rectangle{xStart + 18.0f + (pBtnW + 8.0f), my, pBtnW, 44.0f}, midModeName, Color{26, 44, 70, 230}, RAYWHITE,
+                       launchSettings.spawnMode == LaunchSpawnMode::CircularOrbit, 12.0f)) {
             launchSettings.spawnMode = LaunchSpawnMode::CircularOrbit;
         }
         if (DrawButton(Rectangle{xStart + 18.0f + 2 * (pBtnW + 8.0f), my, pBtnW, 44.0f}, "Stationary (Click)", Color{26, 44, 70, 230}, RAYWHITE,

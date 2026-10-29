@@ -152,6 +152,13 @@ int main(int argc, char* argv[]) {
             renderer.resetCamera(currentW, currentH);
             selectedBodyId = -1;
         }
+        if (IsKeyPressed(KEY_FOUR)) {
+            engine.loadEarthRoom();
+            renderer.resetCamera(currentW, currentH);
+            renderer.camera.target = Vector2{0.0f, -20.0f};
+            renderer.camera.zoom = 1.05f;
+            selectedBodyId = -1;
+        }
 
         // Integrator toggle
         if (IsKeyPressed(KEY_I)) {
@@ -258,10 +265,10 @@ int main(int argc, char* argv[]) {
                 } else {
                     // Clicked on empty space
                     if (launchSettings.spawnMode == LaunchSpawnMode::CircularOrbit) {
-                        Vec2 orbVel = engine.computeCircularOrbitVelocity(mouseWorld);
+                        Vec2 spawnVel = engine.roomBounds.enabled ? Vec2{0.0, 0.0} : engine.computeCircularOrbitVelocity(mouseWorld);
                         int spawnedId = nextSpawnId++;
                         Body newBody(spawnedId, launchSettings.typeName + " #" + std::to_string(spawnedId),
-                                     launchSettings.mass, launchSettings.radius, mouseWorld, orbVel,
+                                     launchSettings.mass, launchSettings.radius, mouseWorld, spawnVel,
                                      launchSettings.color, launchSettings.isStatic);
                         newBody.maxTrailPoints = launchSettings.trailLength;
                         engine.addBody(newBody);
@@ -353,6 +360,7 @@ int main(int argc, char* argv[]) {
         BeginMode2D(renderer.camera);
 
         renderer.drawGrid();
+        renderer.drawRoom(engine);
         renderer.drawTrails(engine.bodies);
         renderer.drawBodies(engine.bodies, selectedBodyId);
 
