@@ -19,8 +19,8 @@ public:
     bool followHeaviest{false};
     int followedBodyId{-1};
 
-    // Sidebar state & dimensions
-    float sidebarWidth{430.0f};
+    // Sidebar state & dimensions (Enlarged and spacious)
+    float sidebarWidth{480.0f};
     bool sidebarVisible{true};
     SidebarTab activeTab{SidebarTab::Inspector};
 
@@ -57,5 +57,6 @@ public:
     [[nodiscard]] Vector2 worldToScreen(Vec2 worldPos) const;
 
     // UI helper widgets
-    static bool DrawButton(Rectangle rect, const char* text, Color bg, Color textCol, bool isActive = false);
+    static bool DrawButton(Rectangle rect, const char* text, Color bg, Color textCol, bool isActive = false, int fontSize = 13);
+    static void DrawCard(Rectangle rect, const char* title = nullptr, Color titleCol = GOLD);
 };

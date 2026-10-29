@@ -133,19 +133,15 @@ void Renderer::drawSelectionReticle(const Body& body) const {
     Color reticleCol = Color{255, 220, 40, static_cast<unsigned char>(200 + 55 * std::sin(animTime * 6.0f))};
 
     // 4 Corner Brackets
-    // Top-Left
     DrawLineEx(Vector2{pos.x - boxR, pos.y - boxR}, Vector2{pos.x - boxR + bracketLen, pos.y - boxR}, 2.0f, reticleCol);
     DrawLineEx(Vector2{pos.x - boxR, pos.y - boxR}, Vector2{pos.x - boxR, pos.y - boxR + bracketLen}, 2.0f, reticleCol);
 
-    // Top-Right
     DrawLineEx(Vector2{pos.x + boxR, pos.y - boxR}, Vector2{pos.x + boxR - bracketLen, pos.y - boxR}, 2.0f, reticleCol);
     DrawLineEx(Vector2{pos.x + boxR, pos.y - boxR}, Vector2{pos.x + boxR, pos.y - boxR + bracketLen}, 2.0f, reticleCol);
 
-    // Bottom-Left
     DrawLineEx(Vector2{pos.x - boxR, pos.y + boxR}, Vector2{pos.x - boxR + bracketLen, pos.y + boxR}, 2.0f, reticleCol);
     DrawLineEx(Vector2{pos.x - boxR, pos.y + boxR}, Vector2{pos.x - boxR, pos.y + boxR - bracketLen}, 2.0f, reticleCol);
 
-    // Bottom-Right
     DrawLineEx(Vector2{pos.x + boxR, pos.y + boxR}, Vector2{pos.x + boxR - bracketLen, pos.y + boxR}, 2.0f, reticleCol);
     DrawLineEx(Vector2{pos.x + boxR, pos.y + boxR}, Vector2{pos.x + boxR, pos.y + boxR - bracketLen}, 2.0f, reticleCol);
 
@@ -179,7 +175,6 @@ void Renderer::drawVelocityVectors(const std::vector<Body>& bodies) const {
 
         DrawLineEx(start, end, 1.5f, Fade(GREEN, 0.75f));
 
-        // Arrow head
         Vector2 dir = Vector2Normalize(Vector2Subtract(end, start));
         Vector2 perp = Vector2{-dir.y, dir.x};
         float arrowSize = 4.0f;
@@ -192,14 +187,12 @@ void Renderer::drawVelocityVectors(const std::vector<Body>& bodies) const {
 
 void Renderer::drawTrajectoryPreview(const std::vector<Vec2>& trajectoryPoints,
                                     Vec2 spawnPos, double spawnRadius, Color spawnColor) const {
-    // Phantom ghost of body to be spawned
     Vector2 sp = spawnPos.toVector2();
     float r = static_cast<float>(spawnRadius);
     DrawCircleV(sp, r * 1.4f, Fade(spawnColor, 0.3f));
     DrawCircleV(sp, r, Fade(spawnColor, 0.7f));
     DrawCircleLines(static_cast<int>(sp.x), static_cast<int>(sp.y), r, WHITE);
 
-    // Predicted trajectory curve
     if (trajectoryPoints.size() >= 2) {
         const size_t count = trajectoryPoints.size();
         for (size_t i = 1; i < count; ++i) {
@@ -212,7 +205,7 @@ void Renderer::drawTrajectoryPreview(const std::vector<Vec2>& trajectoryPoints,
     }
 }
 
-bool Renderer::DrawButton(Rectangle rect, const char* text, Color bg, Color textCol, bool isActive) {
+bool Renderer::DrawButton(Rectangle rect, const char* text, Color bg, Color textCol, bool isActive, int fontSize) {
     Vector2 mouse = GetMousePosition();
     bool hovered = CheckCollisionPointRec(mouse, rect);
 
@@ -220,12 +213,17 @@ bool Renderer::DrawButton(Rectangle rect, const char* text, Color bg, Color text
     Color borderCol = isActive ? GOLD : (hovered ? SKYBLUE : Fade(GRAY, 0.5f));
 
     if (isActive) {
-        drawBg = Color{drawBg.r, static_cast<unsigned char>(std::min(255, drawBg.g + 40)), drawBg.b, drawBg.a};
+        drawBg = Color{
+            static_cast<unsigned char>(std::min(255, drawBg.r + 35)),
+            static_cast<unsigned char>(std::min(255, drawBg.g + 45)),
+            static_cast<unsigned char>(std::min(255, drawBg.b + 55)),
+            drawBg.a
+        };
     } else if (hovered) {
         drawBg = Color{
-            static_cast<unsigned char>(std::min(255, drawBg.r + 25)),
-            static_cast<unsigned char>(std::min(255, drawBg.g + 25)),
-            static_cast<unsigned char>(std::min(255, drawBg.b + 25)),
+            static_cast<unsigned char>(std::min(255, drawBg.r + 28)),
+            static_cast<unsigned char>(std::min(255, drawBg.g + 28)),
+            static_cast<unsigned char>(std::min(255, drawBg.b + 28)),
             drawBg.a
         };
     }
@@ -233,7 +231,6 @@ bool Renderer::DrawButton(Rectangle rect, const char* text, Color bg, Color text
     DrawRectangleRounded(rect, 0.22f, 4, drawBg);
     DrawRectangleRoundedLines(rect, 0.22f, 4, borderCol);
 
-    int fontSize = 11;
     int textW = MeasureText(text, fontSize);
     int textX = static_cast<int>(rect.x + (rect.width - textW) * 0.5f);
     int textY = static_cast<int>(rect.y + (rect.height - fontSize) * 0.5f);
@@ -241,6 +238,18 @@ bool Renderer::DrawButton(Rectangle rect, const char* text, Color bg, Color text
     DrawText(text, textX, textY, fontSize, hovered ? WHITE : textCol);
 
     return hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+}
+
+void Renderer::DrawCard(Rectangle rect, const char* title, Color titleCol) {
+    DrawRectangleRounded(rect, 0.05f, 6, Fade(Color{14, 20, 32, 255}, 0.88f));
+    DrawRectangleRoundedLines(rect, 0.05f, 6, Fade(Color{55, 75, 110, 255}, 0.55f));
+
+    if (title != nullptr) {
+        DrawText(title, static_cast<int>(rect.x + 14), static_cast<int>(rect.y + 10), 13, titleCol);
+        DrawLine(static_cast<int>(rect.x + 12), static_cast<int>(rect.y + 28),
+                 static_cast<int>(rect.x + rect.width - 12), static_cast<int>(rect.y + 28),
+                 Fade(DARKGRAY, 0.45f));
+    }
 }
 
 void Renderer::drawHUD(const GravityEngine& engine, float timeScale, bool isPaused,
@@ -257,24 +266,20 @@ void Renderer::drawHUD(const GravityEngine& engine, float timeScale, bool isPaus
     int y = 55;
     int lineSpacing = 19;
 
-    // FPS & Body Count
     DrawText(TextFormat("FPS: %d", GetFPS()), 28, y, 13, GREEN);
     DrawText(TextFormat("Bodies: %zu", engine.getBodyCount()), 160, y, 13, RAYWHITE);
     y += lineSpacing;
 
-    // Integrator
     DrawText("Integrator [I]:", 28, y, 13, LIGHTGRAY);
     DrawText(engine.getIntegratorName(), 160, y, 13,
              (engine.integrator == IntegratorType::VelocityVerlet) ? GOLD : ORANGE);
     y += lineSpacing;
 
-    // Collision Mode
     DrawText("Collision [C]:", 28, y, 13, LIGHTGRAY);
     DrawText(engine.getCollisionModeName(), 160, y, 13,
              (engine.collisionMode == CollisionMode::InelasticMerge) ? VIOLET : (engine.collisionMode == CollisionMode::Elastic ? LIME : GRAY));
     y += lineSpacing;
 
-    // Simulation State & Time Scale
     DrawText("Status [SPACE]:", 28, y, 13, LIGHTGRAY);
     DrawText(isPaused ? "PAUSED" : "RUNNING", 160, y, 13, isPaused ? RED : LIME);
     y += lineSpacing;
@@ -283,7 +288,6 @@ void Renderer::drawHUD(const GravityEngine& engine, float timeScale, bool isPaus
     DrawText(TextFormat("%.1fx (substeps: %d)", timeScale, static_cast<int>(timeScale * 5)), 160, y, 13, RAYWHITE);
     y += lineSpacing;
 
-    // Energy Diagnostics
     double kinetic = engine.computeKineticEnergy();
     double potential = engine.computePotentialEnergy();
     double total = kinetic + potential;
@@ -298,12 +302,10 @@ void Renderer::drawHUD(const GravityEngine& engine, float timeScale, bool isPaus
     DrawText(TextFormat("%.5f%%", drift), 160, y, 13, driftColor);
     y += lineSpacing;
 
-    // Active Spawner Type & Mode
     DrawText("Payload [TAB]:", 28, y, 13, LIGHTGRAY);
     DrawText(TextFormat("%s (M=%.1f)", launchSettings.typeName.c_str(), launchSettings.mass), 160, y, 13, YELLOW);
     y += lineSpacing;
 
-    // Zoom level & Target
     DrawText("Camera Zoom:", 28, y, 13, LIGHTGRAY);
     DrawText(TextFormat("%.2fx %s", camera.zoom, (followedBodyId != -1 ? "[LOCKED]" : "")), 160, y, 13, RAYWHITE);
 
@@ -321,9 +323,8 @@ void Renderer::drawHUD(const GravityEngine& engine, float timeScale, bool isPaus
 }
 
 void Renderer::drawSidebarTogglePill(int screenWidth, int /*screenHeight*/) {
-    // Show button when collapsed on the right screen edge
-    Rectangle pillRect{static_cast<float>(screenWidth - 145), 18.0f, 132.0f, 32.0f};
-    if (DrawButton(pillRect, "<< SHOW SIDEBAR", Color{20, 30, 48, 235}, GOLD)) {
+    Rectangle pillRect{static_cast<float>(screenWidth - 160), 16.0f, 145.0f, 36.0f};
+    if (DrawButton(pillRect, "<< SHOW SIDEBAR [H]", Color{18, 28, 46, 240}, GOLD, false, 12)) {
         sidebarVisible = true;
     }
 }
@@ -338,162 +339,150 @@ void Renderer::drawSidebar(Body* selectedBody, GravityEngine& engine, LaunchSett
     float barX = static_cast<float>(screenWidth) - sidebarWidth;
     float barW = sidebarWidth;
     float barH = static_cast<float>(screenHeight);
+    float xStart = barX + 18.0f;
+    float contentW = barW - 36.0f;
 
-    // Full-height dark glass background with glowing left border
-    DrawRectangle(static_cast<int>(barX), 0, static_cast<int>(barW), static_cast<int>(barH), Color{11, 15, 24, 248});
-    DrawLineEx(Vector2{barX, 0.0f}, Vector2{barX, barH}, 2.0f, Fade(GOLD, 0.65f));
+    // Full-height dark translucent sidebar background with glowing border line
+    DrawRectangle(static_cast<int>(barX), 0, static_cast<int>(barW), static_cast<int>(barH), Color{10, 14, 23, 248});
+    DrawLineEx(Vector2{barX, 0.0f}, Vector2{barX, barH}, 2.5f, Fade(GOLD, 0.7f));
 
-    // Top Header & Collapse Controls
+    // Top Header & Tab Controls
     float y = 14.0f;
 
-    // Hide button
-    Rectangle hideBtnRect{barX + 16, y, 92, 26};
-    if (DrawButton(hideBtnRect, "HIDE >> [H]", Color{30, 40, 55, 220}, LIGHTGRAY)) {
+    Rectangle hideBtnRect{xStart, y, 105, 32};
+    if (DrawButton(hideBtnRect, "HIDE >> [H]", Color{28, 38, 54, 230}, LIGHTGRAY, false, 12)) {
         sidebarVisible = false;
         return;
     }
 
-    // Tabs: [INSPECTOR] and [SPAWNER SETTINGS]
-    Rectangle tabInspRect{barX + 116, y, 142, 26};
+    Rectangle tabInspRect{xStart + 114, y, 160, 32};
     bool isInspActive = (activeTab == SidebarTab::Inspector);
-    if (DrawButton(tabInspRect, "OBJECT INSPECTOR", isInspActive ? Color{40, 55, 80, 240} : Color{22, 28, 40, 200},
-                   isInspActive ? GOLD : GRAY, isInspActive)) {
+    if (DrawButton(tabInspRect, "OBJECT INSPECTOR", isInspActive ? Color{42, 60, 90, 240} : Color{20, 26, 38, 200},
+                   isInspActive ? GOLD : GRAY, isInspActive, 12)) {
         activeTab = SidebarTab::Inspector;
     }
 
-    Rectangle tabSpawnRect{barX + 264, y, 148, 26};
+    Rectangle tabSpawnRect{xStart + 282, y, 162, 32};
     bool isSpawnActive = (activeTab == SidebarTab::Spawner);
-    if (DrawButton(tabSpawnRect, "SPAWNER SETTINGS", isSpawnActive ? Color{40, 55, 80, 240} : Color{22, 28, 40, 200},
-                   isSpawnActive ? SKYBLUE : GRAY, isSpawnActive)) {
+    if (DrawButton(tabSpawnRect, "SPAWNER SETTINGS", isSpawnActive ? Color{42, 60, 90, 240} : Color{20, 26, 38, 200},
+                   isSpawnActive ? SKYBLUE : GRAY, isSpawnActive, 12)) {
         activeTab = SidebarTab::Spawner;
     }
 
-    y += 34.0f;
-    DrawLineEx(Vector2{barX + 12, y}, Vector2{barX + barW - 12, y}, 1.0f, Fade(DARKGRAY, 0.5f));
+    y += 42.0f;
+    DrawLineEx(Vector2{xStart, y}, Vector2{xStart + contentW, y}, 1.0f, Fade(DARKGRAY, 0.5f));
     y += 12.0f;
 
-    // --- TAB CONTENT 1: OBJECT INSPECTOR ---
+    // --- TAB 1: OBJECT INSPECTOR ---
     if (activeTab == SidebarTab::Inspector) {
         if (!selectedBody) {
-            // Empty State
-            y += 40.0f;
-            DrawText("NO CELESTIAL OBJECT SELECTED", static_cast<int>(barX + 40), static_cast<int>(y), 15, GOLD);
-            y += 28.0f;
+            // Spacious Empty State
+            y += 60.0f;
+            DrawText("NO CELESTIAL OBJECT SELECTED", static_cast<int>(xStart + 45), static_cast<int>(y), 17, GOLD);
+            y += 35.0f;
 
-            DrawText("Click on any celestial body in space to inspect it:", static_cast<int>(barX + 24), static_cast<int>(y), 12, LIGHTGRAY);
-            y += 22.0f;
-            DrawText("- Modify mass, radius, and density in real-time.", static_cast<int>(barX + 30), static_cast<int>(y), 11, RAYWHITE);
-            y += 18.0f;
-            DrawText("- Analyze surface gravity pull, escape velocity & orbits.", static_cast<int>(barX + 30), static_cast<int>(y), 11, RAYWHITE);
-            y += 18.0f;
-            DrawText("- Lock camera tracking or circularize orbit.", static_cast<int>(barX + 30), static_cast<int>(y), 11, RAYWHITE);
-            y += 18.0f;
-            DrawText("- Toggle static anchor or halt velocity instantly.", static_cast<int>(barX + 30), static_cast<int>(y), 11, RAYWHITE);
+            DrawCard(Rectangle{xStart, y, contentW, 240.0f}, "HOW TO USE THE INSPECTOR", SKYBLUE);
+            float ey = y + 42.0f;
+            DrawText("1. Click any planet, star, or debris particle in space.", static_cast<int>(xStart + 20), static_cast<int>(ey), 14, RAYWHITE);
+            ey += 28.0f;
+            DrawText("2. View surface gravity, escape velocity & orbits.", static_cast<int>(xStart + 20), static_cast<int>(ey), 14, RAYWHITE);
+            ey += 28.0f;
+            DrawText("3. Adjust mass, radius, and density with live steppers.", static_cast<int>(xStart + 20), static_cast<int>(ey), 14, RAYWHITE);
+            ey += 28.0f;
+            DrawText("4. Lock camera tracking, freeze velocity, or circularize.", static_cast<int>(xStart + 20), static_cast<int>(ey), 14, RAYWHITE);
+            ey += 28.0f;
+            DrawText("5. Recolor bodies, clear trails, or destroy objects.", static_cast<int>(xStart + 20), static_cast<int>(ey), 14, RAYWHITE);
 
-            y += 45.0f;
-            Rectangle switchTabBtn{barX + 80, y, 260, 32};
-            if (DrawButton(switchTabBtn, "OPEN SPAWNER SETTINGS [TAB]", Color{25, 45, 75, 230}, SKYBLUE)) {
+            y += 265.0f;
+            Rectangle switchTabBtn{xStart + 60, y, contentW - 120, 42};
+            if (DrawButton(switchTabBtn, "OPEN SPAWNER SETTINGS [TAB]", Color{26, 48, 80, 230}, SKYBLUE, false, 14)) {
                 activeTab = SidebarTab::Spawner;
             }
             return;
         }
 
-        // Header Card with Body Thumbnail, Name, and Deselect Button
-        Vector2 thumbPos{barX + 38, y + 20};
-        DrawCircleV(thumbPos, 18.0f, Fade(selectedBody->color, 0.35f));
-        DrawCircleV(thumbPos, 13.0f, selectedBody->color);
-        DrawCircleLines(static_cast<int>(thumbPos.x), static_cast<int>(thumbPos.y), 13, WHITE);
+        // Section 1: Body Identity Card (Spacious)
+        float card1H = 74.0f;
+        DrawCard(Rectangle{xStart, y, contentW, card1H});
 
-        DrawText(selectedBody->name.c_str(), static_cast<int>(barX + 66), static_cast<int>(y + 8), 17, RAYWHITE);
-        DrawText(selectedBody->isStatic ? "[STATIC ANCHOR]" : "[DYNAMIC BODY IN ORBIT]",
-                 static_cast<int>(barX + 66), static_cast<int>(y + 28), 11, selectedBody->isStatic ? GOLD : SKYBLUE);
+        Vector2 thumbPos{xStart + 36, y + card1H * 0.5f};
+        DrawCircleV(thumbPos, 20.0f, Fade(selectedBody->color, 0.35f));
+        DrawCircleV(thumbPos, 14.0f, selectedBody->color);
+        DrawCircleLines(static_cast<int>(thumbPos.x), static_cast<int>(thumbPos.y), 14, WHITE);
 
-        Rectangle deselectBtn{barX + barW - 110, y + 10, 95, 24};
-        if (DrawButton(deselectBtn, "DESELECT [X]", Color{50, 30, 35, 200}, RED)) {
+        DrawText(selectedBody->name.c_str(), static_cast<int>(xStart + 70), static_cast<int>(y + 14), 20, RAYWHITE);
+        DrawText(selectedBody->isStatic ? "[STATIC ANCHOR / FIXED]" : "[DYNAMIC IN KEPLERIAN ORBIT]",
+                 static_cast<int>(xStart + 70), static_cast<int>(y + 42), 12, selectedBody->isStatic ? GOLD : SKYBLUE);
+
+        Rectangle deselectBtn{xStart + contentW - 120, y + 20, 110, 34};
+        if (DrawButton(deselectBtn, "DESELECT [X]", Color{55, 25, 25, 220}, RED, false, 12)) {
             shouldDeselect = true;
         }
+        y += card1H + 12.0f;
 
-        y += 54.0f;
-        DrawLineEx(Vector2{barX + 16, y}, Vector2{barX + barW - 16, y}, 1.0f, Fade(GRAY, 0.3f));
-        y += 10.0f;
+        // Section 2: Physical Mass & Dimensions Card
+        float card2H = 175.0f;
+        DrawCard(Rectangle{xStart, y, contentW, card2H}, "PHYSICAL MASS & DIMENSIONS", GOLD);
+        float py = y + 36.0f;
 
-        // --- Physical Properties Controls ---
-        DrawText("PHYSICAL PROPERTIES", static_cast<int>(barX + 18), static_cast<int>(y), 12, GOLD);
-        y += 20.0f;
+        // Mass Row
+        DrawText("Mass:", static_cast<int>(xStart + 16), static_cast<int>(py + 2), 14, LIGHTGRAY);
+        DrawText(TextFormat("%.3e kg", selectedBody->mass), static_cast<int>(xStart + 105), static_cast<int>(py), 16, YELLOW);
+        py += 24.0f;
 
-        // Mass
-        DrawText("Mass:", static_cast<int>(barX + 18), static_cast<int>(y), 13, LIGHTGRAY);
-        DrawText(TextFormat("%.3e kg", selectedBody->mass), static_cast<int>(barX + 110), static_cast<int>(y), 13, YELLOW);
-        y += 20.0f;
-
-        if (DrawButton(Rectangle{barX + 18, y, 44, 22}, "-50%", Color{30, 42, 60, 220}, RAYWHITE)) {
+        float btnW4 = (contentW - 32.0f - 18.0f) / 4.0f;
+        // Mass Steppers Row 1
+        if (DrawButton(Rectangle{xStart + 16, py, btnW4, 26}, "-50%", Color{28, 40, 58, 220}, RAYWHITE, false, 12)) {
             selectedBody->setMass(selectedBody->mass * 0.5);
         }
-        if (DrawButton(Rectangle{barX + 66, y, 44, 22}, "-10%", Color{30, 42, 60, 220}, RAYWHITE)) {
+        if (DrawButton(Rectangle{xStart + 16 + (btnW4 + 6), py, btnW4, 26}, "-10%", Color{28, 40, 58, 220}, RAYWHITE, false, 12)) {
             selectedBody->setMass(selectedBody->mass * 0.9);
         }
-        if (DrawButton(Rectangle{barX + 114, y, 44, 22}, "+10%", Color{30, 42, 60, 220}, RAYWHITE)) {
+        if (DrawButton(Rectangle{xStart + 16 + 2 * (btnW4 + 6), py, btnW4, 26}, "+10%", Color{28, 40, 58, 220}, RAYWHITE, false, 12)) {
             selectedBody->setMass(selectedBody->mass * 1.1);
         }
-        if (DrawButton(Rectangle{barX + 162, y, 44, 22}, "+50%", Color{30, 42, 60, 220}, RAYWHITE)) {
+        if (DrawButton(Rectangle{xStart + 16 + 3 * (btnW4 + 6), py, btnW4, 26}, "+50%", Color{28, 40, 58, 220}, RAYWHITE, false, 12)) {
             selectedBody->setMass(selectedBody->mass * 1.5);
         }
-        if (DrawButton(Rectangle{barX + 214, y, 44, 22}, "/2", Color{30, 42, 60, 220}, RAYWHITE)) {
-            selectedBody->setMass(selectedBody->mass * 0.5);
-        }
-        if (DrawButton(Rectangle{barX + 262, y, 44, 22}, "x2", Color{30, 42, 60, 220}, RAYWHITE)) {
-            selectedBody->setMass(selectedBody->mass * 2.0);
-        }
-        if (DrawButton(Rectangle{barX + 314, y, 44, 22}, "/10", Color{30, 42, 60, 220}, RAYWHITE)) {
+        py += 30.0f;
+
+        // Mass Multipliers Row 2
+        if (DrawButton(Rectangle{xStart + 16, py, btnW4, 26}, "/10", Color{28, 40, 58, 220}, RAYWHITE, false, 12)) {
             selectedBody->setMass(selectedBody->mass * 0.1);
         }
-        if (DrawButton(Rectangle{barX + 362, y, 44, 22}, "x10", Color{30, 42, 60, 220}, RAYWHITE)) {
+        if (DrawButton(Rectangle{xStart + 16 + (btnW4 + 6), py, btnW4, 26}, "/2", Color{28, 40, 58, 220}, RAYWHITE, false, 12)) {
+            selectedBody->setMass(selectedBody->mass * 0.5);
+        }
+        if (DrawButton(Rectangle{xStart + 16 + 2 * (btnW4 + 6), py, btnW4, 26}, "x2", Color{28, 40, 58, 220}, RAYWHITE, false, 12)) {
+            selectedBody->setMass(selectedBody->mass * 2.0);
+        }
+        if (DrawButton(Rectangle{xStart + 16 + 3 * (btnW4 + 6), py, btnW4, 26}, "x10", Color{28, 40, 58, 220}, RAYWHITE, false, 12)) {
             selectedBody->setMass(selectedBody->mass * 10.0);
         }
-        y += 30.0f;
+        py += 34.0f;
 
-        // Radius
-        DrawText("Radius:", static_cast<int>(barX + 18), static_cast<int>(y), 13, LIGHTGRAY);
-        DrawText(TextFormat("%.1f px", selectedBody->radius), static_cast<int>(barX + 110), static_cast<int>(y), 13, RAYWHITE);
+        // Radius & Density Rows
+        DrawText("Radius:", static_cast<int>(xStart + 16), static_cast<int>(py + 2), 14, LIGHTGRAY);
+        DrawText(TextFormat("%.1f px", selectedBody->radius), static_cast<int>(xStart + 80), static_cast<int>(py + 2), 15, RAYWHITE);
 
-        if (DrawButton(Rectangle{barX + 214, y - 2, 44, 22}, "-5 px", Color{30, 42, 60, 220}, RAYWHITE)) {
-            selectedBody->setRadius(selectedBody->radius - 5.0);
-        }
-        if (DrawButton(Rectangle{barX + 262, y - 2, 44, 22}, "-1 px", Color{30, 42, 60, 220}, RAYWHITE)) {
+        if (DrawButton(Rectangle{xStart + 155, py, 60, 24}, "-1 px", Color{28, 40, 58, 220}, RAYWHITE, false, 11)) {
             selectedBody->setRadius(selectedBody->radius - 1.0);
         }
-        if (DrawButton(Rectangle{barX + 314, y - 2, 44, 22}, "+1 px", Color{30, 42, 60, 220}, RAYWHITE)) {
+        if (DrawButton(Rectangle{xStart + 220, py, 60, 24}, "+1 px", Color{28, 40, 58, 220}, RAYWHITE, false, 11)) {
             selectedBody->setRadius(selectedBody->radius + 1.0);
         }
-        if (DrawButton(Rectangle{barX + 362, y - 2, 44, 22}, "+5 px", Color{30, 42, 60, 220}, RAYWHITE)) {
-            selectedBody->setRadius(selectedBody->radius + 5.0);
-        }
-        y += 30.0f;
 
-        // Density
-        DrawText("Density (ρ):", static_cast<int>(barX + 18), static_cast<int>(y), 13, LIGHTGRAY);
-        DrawText(TextFormat("%.4f kg/px²", selectedBody->getDensity()), static_cast<int>(barX + 110), static_cast<int>(y), 13, GREEN);
+        DrawText("Density:", static_cast<int>(xStart + 295), static_cast<int>(py + 2), 14, LIGHTGRAY);
+        DrawText(TextFormat("%.3f", selectedBody->getDensity()), static_cast<int>(xStart + 360), static_cast<int>(py + 2), 15, GREEN);
+        py += 28.0f;
 
-        if (DrawButton(Rectangle{barX + 214, y - 2, 44, 22}, "-20%", Color{30, 42, 60, 220}, RAYWHITE)) {
-            selectedBody->setDensity(selectedBody->getDensity() * 0.8);
-        }
-        if (DrawButton(Rectangle{barX + 262, y - 2, 44, 22}, "-5%", Color{30, 42, 60, 220}, RAYWHITE)) {
-            selectedBody->setDensity(selectedBody->getDensity() * 0.95);
-        }
-        if (DrawButton(Rectangle{barX + 314, y - 2, 44, 22}, "+5%", Color{30, 42, 60, 220}, RAYWHITE)) {
-            selectedBody->setDensity(selectedBody->getDensity() * 1.05);
-        }
-        if (DrawButton(Rectangle{barX + 362, y - 2, 44, 22}, "+20%", Color{30, 42, 60, 220}, RAYWHITE)) {
-            selectedBody->setDensity(selectedBody->getDensity() * 1.2);
-        }
-        y += 34.0f;
+        y += card2H + 12.0f;
 
-        // --- Gravitational Field & Mechanics Section ---
-        DrawLineEx(Vector2{barX + 16, y}, Vector2{barX + barW - 16, y}, 1.0f, Fade(GRAY, 0.3f));
-        y += 10.0f;
-
-        DrawText("GRAVITATIONAL FIELD & MECHANICS", static_cast<int>(barX + 18), static_cast<int>(y), 12, SKYBLUE);
-        y += 22.0f;
+        // Section 3: Gravitational Field & Kinematics Card (Spacious, fills center)
+        float card3H = 205.0f;
+        DrawCard(Rectangle{xStart, y, contentW, card3H}, "GRAVITATIONAL FIELD & KINEMATICS", SKYBLUE);
+        float gy = y + 36.0f;
+        float rowSpacing = 22.0f;
 
         double surfG = selectedBody->getSurfaceGravity(engine.G, engine.epsilon);
         double escV = selectedBody->getEscapeVelocity(engine.G);
@@ -501,63 +490,70 @@ void Renderer::drawSidebar(Body* selectedBody, GravityEngine& engine, LaunchSett
         double accPull = selectedBody->acc.length();
         double mu = engine.G * selectedBody->mass;
 
-        DrawText("Surface Gravity (g):", static_cast<int>(barX + 18), static_cast<int>(y), 12, LIGHTGRAY);
-        DrawText(TextFormat("%.3e m/s²", surfG), static_cast<int>(barX + 210), static_cast<int>(y), 12, GOLD);
-        y += 20.0f;
+        DrawText("Surface Gravity (g):", static_cast<int>(xStart + 16), static_cast<int>(gy), 14, LIGHTGRAY);
+        DrawText(TextFormat("%.4e m/s²", surfG), static_cast<int>(xStart + 225), static_cast<int>(gy), 15, GOLD);
+        gy += rowSpacing;
 
-        DrawText("Escape Velocity (V_esc):", static_cast<int>(barX + 18), static_cast<int>(y), 12, LIGHTGRAY);
-        DrawText(TextFormat("%.2f m/s", escV), static_cast<int>(barX + 210), static_cast<int>(y), 12, GOLD);
-        y += 20.0f;
+        DrawText("Escape Velocity (V_esc):", static_cast<int>(xStart + 16), static_cast<int>(gy), 14, LIGHTGRAY);
+        DrawText(TextFormat("%.2f m/s", escV), static_cast<int>(xStart + 225), static_cast<int>(gy), 15, GOLD);
+        gy += rowSpacing;
 
-        DrawText("Grav. Parameter (μ):", static_cast<int>(barX + 18), static_cast<int>(y), 12, LIGHTGRAY);
-        DrawText(TextFormat("%.3e", mu), static_cast<int>(barX + 210), static_cast<int>(y), 12, RAYWHITE);
-        y += 20.0f;
+        DrawText("Gravitational Param (μ):", static_cast<int>(xStart + 16), static_cast<int>(gy), 14, LIGHTGRAY);
+        DrawText(TextFormat("%.3e", mu), static_cast<int>(xStart + 225), static_cast<int>(gy), 14, RAYWHITE);
+        gy += rowSpacing;
 
-        DrawText("Current Speed (|v|):", static_cast<int>(barX + 18), static_cast<int>(y), 12, LIGHTGRAY);
-        DrawText(TextFormat("%.2f m/s", speed), static_cast<int>(barX + 210), static_cast<int>(y), 12, LIME);
-        y += 20.0f;
+        DrawText("Current Velocity (|v|):", static_cast<int>(xStart + 16), static_cast<int>(gy), 14, LIGHTGRAY);
+        DrawText(TextFormat("%.2f m/s", speed), static_cast<int>(xStart + 225), static_cast<int>(gy), 15, LIME);
+        gy += rowSpacing;
 
-        DrawText("Net Gravity Pull (|a|):", static_cast<int>(barX + 18), static_cast<int>(y), 12, LIGHTGRAY);
-        DrawText(TextFormat("%.3e m/s²", accPull), static_cast<int>(barX + 210), static_cast<int>(y), 12, ORANGE);
-        y += 20.0f;
+        DrawText("Net Gravity Force (|a|):", static_cast<int>(xStart + 16), static_cast<int>(gy), 14, LIGHTGRAY);
+        DrawText(TextFormat("%.4e m/s²", accPull), static_cast<int>(xStart + 225), static_cast<int>(gy), 15, ORANGE);
+        gy += rowSpacing;
 
-        DrawText("World Position (X, Y):", static_cast<int>(barX + 18), static_cast<int>(y), 12, LIGHTGRAY);
-        DrawText(TextFormat("(%.1f, %.1f)", selectedBody->pos.x, selectedBody->pos.y), static_cast<int>(barX + 210), static_cast<int>(y), 12, RAYWHITE);
-        y += 20.0f;
+        DrawText("World Position (X, Y):", static_cast<int>(xStart + 16), static_cast<int>(gy), 14, LIGHTGRAY);
+        DrawText(TextFormat("(%.1f,  %.1f)", selectedBody->pos.x, selectedBody->pos.y), static_cast<int>(xStart + 225), static_cast<int>(gy), 14, RAYWHITE);
+        gy += rowSpacing;
 
-        DrawText("Velocity Vector (Vx, Vy):", static_cast<int>(barX + 18), static_cast<int>(y), 12, LIGHTGRAY);
-        DrawText(TextFormat("(%.2f, %.2f)", selectedBody->vel.x, selectedBody->vel.y), static_cast<int>(barX + 210), static_cast<int>(y), 12, RAYWHITE);
-        y += 28.0f;
+        DrawText("Velocity Vector (Vx, Vy):", static_cast<int>(xStart + 16), static_cast<int>(gy), 14, LIGHTGRAY);
+        DrawText(TextFormat("(%.2f,  %.2f)", selectedBody->vel.x, selectedBody->vel.y), static_cast<int>(xStart + 225), static_cast<int>(gy), 14, RAYWHITE);
 
-        // --- Action Buttons ---
-        DrawLineEx(Vector2{barX + 16, y}, Vector2{barX + barW - 16, y}, 1.0f, Fade(GRAY, 0.3f));
-        y += 10.0f;
+        y += card3H + 12.0f;
+
+        // Section 4: Motion & Orbital Commands Card (Tactile, large buttons)
+        float card4H = 145.0f;
+        DrawCard(Rectangle{xStart, y, contentW, card4H}, "ORBIT & MOTION COMMANDS", GOLD);
+        float oy = y + 36.0f;
+        float btnW2 = (contentW - 32.0f - 10.0f) * 0.5f;
 
         bool isCamLocked = (followedBodyId == selectedBody->id);
-        if (DrawButton(Rectangle{barX + 18, y, 188, 28}, isCamLocked ? "UNLOCK CAMERA" : "LOCK CAMERA TRACK",
-                       Color{28, 44, 68, 230}, isCamLocked ? GOLD : RAYWHITE, isCamLocked)) {
+        if (DrawButton(Rectangle{xStart + 16, oy, btnW2, 34}, isCamLocked ? "UNLOCK CAMERA" : "LOCK CAMERA TRACK",
+                       Color{28, 45, 72, 230}, isCamLocked ? GOLD : RAYWHITE, isCamLocked, 13)) {
             followedBodyId = isCamLocked ? -1 : selectedBody->id;
         }
 
-        if (DrawButton(Rectangle{barX + 214, y, 198, 28}, selectedBody->isStatic ? "MAKE DYNAMIC" : "MAKE STATIC ANCHOR",
-                       Color{28, 44, 68, 230}, selectedBody->isStatic ? GOLD : RAYWHITE, selectedBody->isStatic)) {
+        if (DrawButton(Rectangle{xStart + 16 + btnW2 + 10, oy, btnW2, 34},
+                       selectedBody->isStatic ? "MAKE DYNAMIC" : "MAKE STATIC ANCHOR",
+                       Color{28, 45, 72, 230}, selectedBody->isStatic ? GOLD : RAYWHITE, selectedBody->isStatic, 13)) {
             selectedBody->isStatic = !selectedBody->isStatic;
             if (selectedBody->isStatic) selectedBody->vel = Vec2{0.0, 0.0};
         }
-        y += 34.0f;
+        oy += 40.0f;
 
-        if (DrawButton(Rectangle{barX + 18, y, 188, 28}, "ZERO VELOCITY (HALT)", Color{40, 35, 58, 230}, RAYWHITE)) {
+        if (DrawButton(Rectangle{xStart + 16, oy, btnW2, 34}, "ZERO VELOCITY (HALT)", Color{45, 36, 60, 230}, RAYWHITE, false, 13)) {
             selectedBody->vel = Vec2{0.0, 0.0};
         }
 
-        if (DrawButton(Rectangle{barX + 214, y, 198, 28}, "AUTO CIRCULARIZE", Color{20, 52, 40, 230}, LIME)) {
+        if (DrawButton(Rectangle{xStart + 16 + btnW2 + 10, oy, btnW2, 34}, "AUTO CIRCULARIZE", Color{20, 56, 42, 230}, LIME, false, 13)) {
             engine.circularizeOrbit(selectedBody->id);
         }
-        y += 36.0f;
+        oy += 40.0f;
 
-        // --- Color Palette ---
-        DrawText("Recolor Body:", static_cast<int>(barX + 18), static_cast<int>(y), 12, LIGHTGRAY);
-        y += 18.0f;
+        y += card4H + 12.0f;
+
+        // Section 5: Appearance & Lifecycle Card (Utilizing bottom area)
+        float card5H = 125.0f;
+        DrawCard(Rectangle{xStart, y, contentW, card5H}, "COLOR PALETTE & LIFECYCLE", VIOLET);
+        float ly = y + 36.0f;
 
         const Color swatches[] = {
             Color{255, 215, 30, 255},  // Gold / Sun
@@ -570,149 +566,145 @@ void Renderer::drawSidebar(Body* selectedBody, GravityEngine& engine, LaunchSett
             Color{240, 240, 245, 255}  // Pearl White
         };
 
-        float swW = 44.0f;
+        float swW = (contentW - 32.0f - 7 * 8.0f) / 8.0f;
         for (size_t i = 0; i < 8; ++i) {
-            Rectangle sRect{barX + 18 + i * 49, y, swW, 22};
+            Rectangle sRect{xStart + 16 + i * (swW + 8.0f), ly, swW, 26};
             DrawRectangleRounded(sRect, 0.25f, 3, swatches[i]);
-            DrawRectangleRoundedLines(sRect, 0.25f, 3, Fade(WHITE, 0.6f));
+            if (selectedBody->color.r == swatches[i].r && selectedBody->color.g == swatches[i].g && selectedBody->color.b == swatches[i].b) {
+                DrawRectangleRoundedLines(sRect, 0.25f, 3, WHITE);
+            } else {
+                DrawRectangleRoundedLines(sRect, 0.25f, 3, Fade(GRAY, 0.45f));
+            }
             if (CheckCollisionPointRec(GetMousePosition(), sRect) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 selectedBody->color = swatches[i];
             }
         }
-        y += 34.0f;
+        ly += 36.0f;
 
-        // Clear Trail & Delete Buttons
-        if (DrawButton(Rectangle{barX + 18, y, 188, 28}, "CLEAR ORBIT TRAIL", Color{38, 42, 52, 230}, RAYWHITE)) {
+        if (DrawButton(Rectangle{xStart + 16, ly, btnW2, 34}, "CLEAR ORBIT TRAIL", Color{38, 44, 56, 230}, RAYWHITE, false, 13)) {
             selectedBody->clearTrail();
         }
 
-        if (DrawButton(Rectangle{barX + 214, y, 198, 28}, "DESTROY OBJECT", Color{80, 24, 24, 230}, RED)) {
+        if (DrawButton(Rectangle{xStart + 16 + btnW2 + 10, ly, btnW2, 34}, "DESTROY OBJECT", Color{85, 25, 25, 230}, RED, false, 13)) {
             shouldDelete = true;
         }
     }
-    // --- TAB CONTENT 2: SPAWNER SETTINGS ---
+    // --- TAB 2: SPAWNER SETTINGS (Spacious layout) ---
     else if (activeTab == SidebarTab::Spawner) {
-        // Celestial Presets
-        DrawText("SELECT PAYLOAD PRESET:", static_cast<int>(barX + 18), static_cast<int>(y), 12, GOLD);
-        y += 20.0f;
+        // Section 1: Payload Presets Card
+        float card1H = 150.0f;
+        DrawCard(Rectangle{xStart, y, contentW, card1H}, "CELESTIAL PAYLOAD PRESETS", GOLD);
+        float py = y + 36.0f;
 
-        if (DrawButton(Rectangle{barX + 18, y, 124, 26}, "Asteroid", Color{28, 38, 54, 230}, RAYWHITE,
-                       launchSettings.presetType == LaunchPresetType::Asteroid)) {
+        float pBtnW = (contentW - 32.0f - 16.0f) / 3.0f;
+        if (DrawButton(Rectangle{xStart + 16, py, pBtnW, 36}, "Asteroid", Color{26, 38, 56, 230}, RAYWHITE,
+                       launchSettings.presetType == LaunchPresetType::Asteroid, 14)) {
             launchSettings.applyPreset(LaunchPresetType::Asteroid);
         }
-        if (DrawButton(Rectangle{barX + 152, y, 124, 26}, "Moon", Color{28, 38, 54, 230}, RAYWHITE,
-                       launchSettings.presetType == LaunchPresetType::Moon)) {
+        if (DrawButton(Rectangle{xStart + 16 + (pBtnW + 8), py, pBtnW, 36}, "Moon", Color{26, 38, 56, 230}, RAYWHITE,
+                       launchSettings.presetType == LaunchPresetType::Moon, 14)) {
             launchSettings.applyPreset(LaunchPresetType::Moon);
         }
-        if (DrawButton(Rectangle{barX + 286, y, 124, 26}, "Planet", Color{28, 38, 54, 230}, RAYWHITE,
-                       launchSettings.presetType == LaunchPresetType::Terrestrial)) {
+        if (DrawButton(Rectangle{xStart + 16 + 2 * (pBtnW + 8), py, pBtnW, 36}, "Planet", Color{26, 38, 56, 230}, RAYWHITE,
+                       launchSettings.presetType == LaunchPresetType::Terrestrial, 14)) {
             launchSettings.applyPreset(LaunchPresetType::Terrestrial);
         }
-        y += 32.0f;
+        py += 44.0f;
 
-        if (DrawButton(Rectangle{barX + 18, y, 124, 26}, "Gas Giant", Color{28, 38, 54, 230}, RAYWHITE,
-                       launchSettings.presetType == LaunchPresetType::GasGiant)) {
+        if (DrawButton(Rectangle{xStart + 16, py, pBtnW, 36}, "Gas Giant", Color{26, 38, 56, 230}, RAYWHITE,
+                       launchSettings.presetType == LaunchPresetType::GasGiant, 14)) {
             launchSettings.applyPreset(LaunchPresetType::GasGiant);
         }
-        if (DrawButton(Rectangle{barX + 152, y, 124, 26}, "Star", Color{28, 38, 54, 230}, RAYWHITE,
-                       launchSettings.presetType == LaunchPresetType::Star)) {
+        if (DrawButton(Rectangle{xStart + 16 + (pBtnW + 8), py, pBtnW, 36}, "Star", Color{26, 38, 56, 230}, RAYWHITE,
+                       launchSettings.presetType == LaunchPresetType::Star, 14)) {
             launchSettings.applyPreset(LaunchPresetType::Star);
         }
-        if (DrawButton(Rectangle{barX + 286, y, 124, 26}, "Singularity", Color{28, 38, 54, 230}, RAYWHITE,
-                       launchSettings.presetType == LaunchPresetType::BlackHole)) {
+        if (DrawButton(Rectangle{xStart + 16 + 2 * (pBtnW + 8), py, pBtnW, 36}, "Singularity", Color{26, 38, 56, 230}, RAYWHITE,
+                       launchSettings.presetType == LaunchPresetType::BlackHole, 14)) {
             launchSettings.applyPreset(LaunchPresetType::BlackHole);
         }
-        y += 38.0f;
 
-        // Spawn Mode
-        DrawLineEx(Vector2{barX + 16, y}, Vector2{barX + barW - 16, y}, 1.0f, Fade(GRAY, 0.3f));
-        y += 10.0f;
+        y += card1H + 14.0f;
 
-        DrawText("SPAWN INJECTION MODE:", static_cast<int>(barX + 18), static_cast<int>(y), 12, GOLD);
-        y += 20.0f;
+        // Section 2: Spawn Injection Mode Card
+        float card2H = 95.0f;
+        DrawCard(Rectangle{xStart, y, contentW, card2H}, "SPAWN INJECTION MODE", GOLD);
+        float my = y + 36.0f;
 
-        if (DrawButton(Rectangle{barX + 18, y, 124, 26}, "Slingshot (Drag)", Color{28, 44, 66, 230}, RAYWHITE,
-                       launchSettings.spawnMode == LaunchSpawnMode::Slingshot)) {
+        if (DrawButton(Rectangle{xStart + 16, my, pBtnW, 38}, "Slingshot (Drag)", Color{26, 44, 68, 230}, RAYWHITE,
+                       launchSettings.spawnMode == LaunchSpawnMode::Slingshot, 12)) {
             launchSettings.spawnMode = LaunchSpawnMode::Slingshot;
         }
-        if (DrawButton(Rectangle{barX + 152, y, 124, 26}, "Auto Orbit (Click)", Color{28, 44, 66, 230}, RAYWHITE,
-                       launchSettings.spawnMode == LaunchSpawnMode::CircularOrbit)) {
+        if (DrawButton(Rectangle{xStart + 16 + (pBtnW + 8), my, pBtnW, 38}, "Auto Orbit (Click)", Color{26, 44, 68, 230}, RAYWHITE,
+                       launchSettings.spawnMode == LaunchSpawnMode::CircularOrbit, 12)) {
             launchSettings.spawnMode = LaunchSpawnMode::CircularOrbit;
         }
-        if (DrawButton(Rectangle{barX + 286, y, 124, 26}, "Stationary (Click)", Color{28, 44, 66, 230}, RAYWHITE,
-                       launchSettings.spawnMode == LaunchSpawnMode::Stationary)) {
+        if (DrawButton(Rectangle{xStart + 16 + 2 * (pBtnW + 8), my, pBtnW, 38}, "Stationary (Click)", Color{26, 44, 68, 230}, RAYWHITE,
+                       launchSettings.spawnMode == LaunchSpawnMode::Stationary, 12)) {
             launchSettings.spawnMode = LaunchSpawnMode::Stationary;
         }
-        y += 38.0f;
 
-        // Physical properties
-        DrawLineEx(Vector2{barX + 16, y}, Vector2{barX + barW - 16, y}, 1.0f, Fade(GRAY, 0.3f));
-        y += 10.0f;
+        y += card2H + 14.0f;
 
-        DrawText("CUSTOM PHYSICAL PROPERTIES:", static_cast<int>(barX + 18), static_cast<int>(y), 12, GOLD);
-        y += 20.0f;
+        // Section 3: Custom Properties Card
+        float card3H = 205.0f;
+        DrawCard(Rectangle{xStart, y, contentW, card3H}, "CUSTOM PHYSICAL PROPERTIES", SKYBLUE);
+        float cy = y + 36.0f;
 
-        DrawText("Launch Mass:", static_cast<int>(barX + 18), static_cast<int>(y), 13, LIGHTGRAY);
-        DrawText(TextFormat("%.3e kg", launchSettings.mass), static_cast<int>(barX + 120), static_cast<int>(y), 13, YELLOW);
-        y += 20.0f;
+        DrawText("Launch Mass:", static_cast<int>(xStart + 16), static_cast<int>(cy + 2), 14, LIGHTGRAY);
+        DrawText(TextFormat("%.3e kg", launchSettings.mass), static_cast<int>(xStart + 140), static_cast<int>(cy), 16, YELLOW);
+        cy += 26.0f;
 
-        if (DrawButton(Rectangle{barX + 18, y, 56, 22}, "-50%", Color{30, 42, 60, 220}, RAYWHITE)) {
+        float btnW4 = (contentW - 32.0f - 18.0f) / 4.0f;
+        if (DrawButton(Rectangle{xStart + 16, cy, btnW4, 28}, "-50%", Color{28, 40, 58, 220}, RAYWHITE, false, 12)) {
             launchSettings.mass = std::max(launchSettings.mass * 0.5, 0.01);
             launchSettings.recalculateRadiusFromDensity();
         }
-        if (DrawButton(Rectangle{barX + 80, y, 56, 22}, "-10%", Color{30, 42, 60, 220}, RAYWHITE)) {
+        if (DrawButton(Rectangle{xStart + 16 + (btnW4 + 6), cy, btnW4, 28}, "-10%", Color{28, 40, 58, 220}, RAYWHITE, false, 12)) {
             launchSettings.mass = std::max(launchSettings.mass * 0.9, 0.01);
             launchSettings.recalculateRadiusFromDensity();
         }
-        if (DrawButton(Rectangle{barX + 142, y, 56, 22}, "+10%", Color{30, 42, 60, 220}, RAYWHITE)) {
+        if (DrawButton(Rectangle{xStart + 16 + 2 * (btnW4 + 6), cy, btnW4, 28}, "+10%", Color{28, 40, 58, 220}, RAYWHITE, false, 12)) {
             launchSettings.mass *= 1.1;
             launchSettings.recalculateRadiusFromDensity();
         }
-        if (DrawButton(Rectangle{barX + 204, y, 56, 22}, "+50%", Color{30, 42, 60, 220}, RAYWHITE)) {
+        if (DrawButton(Rectangle{xStart + 16 + 3 * (btnW4 + 6), cy, btnW4, 28}, "+50%", Color{28, 40, 58, 220}, RAYWHITE, false, 12)) {
             launchSettings.mass *= 1.5;
             launchSettings.recalculateRadiusFromDensity();
         }
-        if (DrawButton(Rectangle{barX + 276, y, 56, 22}, "/10", Color{30, 42, 60, 220}, RAYWHITE)) {
-            launchSettings.mass = std::max(launchSettings.mass * 0.1, 0.01);
-            launchSettings.recalculateRadiusFromDensity();
-        }
-        if (DrawButton(Rectangle{barX + 338, y, 56, 22}, "x10", Color{30, 42, 60, 220}, RAYWHITE)) {
-            launchSettings.mass *= 10.0;
-            launchSettings.recalculateRadiusFromDensity();
-        }
-        y += 32.0f;
+        cy += 36.0f;
 
-        // Launch Radius
-        DrawText("Launch Radius:", static_cast<int>(barX + 18), static_cast<int>(y), 13, LIGHTGRAY);
-        DrawText(TextFormat("%.1f px", launchSettings.radius), static_cast<int>(barX + 120), static_cast<int>(y), 13, RAYWHITE);
+        DrawText("Launch Radius:", static_cast<int>(xStart + 16), static_cast<int>(cy + 2), 14, LIGHTGRAY);
+        DrawText(TextFormat("%.1f px", launchSettings.radius), static_cast<int>(xStart + 140), static_cast<int>(cy + 2), 15, RAYWHITE);
 
-        if (DrawButton(Rectangle{barX + 246, y - 2, 74, 22}, "-1 px", Color{30, 42, 60, 220}, RAYWHITE)) {
+        if (DrawButton(Rectangle{xStart + 240, cy, 80, 26}, "-1 px", Color{28, 40, 58, 220}, RAYWHITE, false, 12)) {
             launchSettings.radius = std::max(launchSettings.radius - 1.0, 1.5);
             launchSettings.recalculateDensityFromRadius();
         }
-        if (DrawButton(Rectangle{barX + 330, y - 2, 74, 22}, "+1 px", Color{30, 42, 60, 220}, RAYWHITE)) {
+        if (DrawButton(Rectangle{xStart + 330, cy, 80, 26}, "+1 px", Color{28, 40, 58, 220}, RAYWHITE, false, 12)) {
             launchSettings.radius += 1.0;
             launchSettings.recalculateDensityFromRadius();
         }
-        y += 30.0f;
+        cy += 34.0f;
 
-        // Launch Density
-        DrawText("Density (ρ):", static_cast<int>(barX + 18), static_cast<int>(y), 13, LIGHTGRAY);
-        DrawText(TextFormat("%.4f kg/px²", launchSettings.density), static_cast<int>(barX + 120), static_cast<int>(y), 13, GREEN);
+        DrawText("Launch Density:", static_cast<int>(xStart + 16), static_cast<int>(cy + 2), 14, LIGHTGRAY);
+        DrawText(TextFormat("%.4f kg/px²", launchSettings.density), static_cast<int>(xStart + 140), static_cast<int>(cy + 2), 15, GREEN);
 
-        if (DrawButton(Rectangle{barX + 246, y - 2, 74, 22}, "-20%", Color{30, 42, 60, 220}, RAYWHITE)) {
+        if (DrawButton(Rectangle{xStart + 240, cy, 80, 26}, "-20%", Color{28, 40, 58, 220}, RAYWHITE, false, 12)) {
             launchSettings.density = std::max(launchSettings.density * 0.8, 0.001);
             launchSettings.recalculateRadiusFromDensity();
         }
-        if (DrawButton(Rectangle{barX + 330, y - 2, 74, 22}, "+20%", Color{30, 42, 60, 220}, RAYWHITE)) {
+        if (DrawButton(Rectangle{xStart + 330, cy, 80, 26}, "+20%", Color{28, 40, 58, 220}, RAYWHITE, false, 12)) {
             launchSettings.density *= 1.2;
             launchSettings.recalculateRadiusFromDensity();
         }
-        y += 36.0f;
 
-        // Launch Color
-        DrawText("Launch Color Palette:", static_cast<int>(barX + 18), static_cast<int>(y), 12, LIGHTGRAY);
-        y += 18.0f;
+        y += card3H + 14.0f;
+
+        // Section 4: Color, Anchor & Trajectory Card
+        float card4H = 175.0f;
+        DrawCard(Rectangle{xStart, y, contentW, card4H}, "COLOR & INJECTION CONTROLS", VIOLET);
+        float vy = y + 36.0f;
 
         const Color swatches[] = {
             Color{70, 160, 255, 255},  // Cyan
@@ -725,61 +717,52 @@ void Renderer::drawSidebar(Body* selectedBody, GravityEngine& engine, LaunchSett
             Color{240, 240, 245, 255}  // Pearl
         };
 
-        float swW = 44.0f;
+        float swW = (contentW - 32.0f - 7 * 8.0f) / 8.0f;
         for (size_t i = 0; i < 8; ++i) {
-            Rectangle sRect{barX + 18 + i * 49, y, swW, 22};
+            Rectangle sRect{xStart + 16 + i * (swW + 8.0f), vy, swW, 26};
             DrawRectangleRounded(sRect, 0.25f, 3, swatches[i]);
             if (launchSettings.color.r == swatches[i].r && launchSettings.color.g == swatches[i].g && launchSettings.color.b == swatches[i].b) {
                 DrawRectangleRoundedLines(sRect, 0.25f, 3, WHITE);
             } else {
-                DrawRectangleRoundedLines(sRect, 0.25f, 3, Fade(GRAY, 0.4f));
+                DrawRectangleRoundedLines(sRect, 0.25f, 3, Fade(GRAY, 0.45f));
             }
             if (CheckCollisionPointRec(GetMousePosition(), sRect) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 launchSettings.color = swatches[i];
             }
         }
-        y += 36.0f;
+        vy += 36.0f;
 
-        // Anchor toggle
-        if (DrawButton(Rectangle{barX + 18, y, 386, 28},
+        if (DrawButton(Rectangle{xStart + 16, vy, contentW - 32.0f, 32},
                        launchSettings.isStatic ? "ANCHORED (STATIC) SPAWN: [ENABLED]" : "DYNAMIC SPAWN: [NORMAL]",
-                       Color{28, 42, 64, 230}, launchSettings.isStatic ? GOLD : RAYWHITE, launchSettings.isStatic)) {
+                       Color{28, 44, 68, 230}, launchSettings.isStatic ? GOLD : RAYWHITE, launchSettings.isStatic, 13)) {
             launchSettings.isStatic = !launchSettings.isStatic;
         }
-        y += 36.0f;
+        vy += 38.0f;
 
-        // Trajectory steps
-        DrawText("Trajectory Prediction Steps:", static_cast<int>(barX + 18), static_cast<int>(y), 12, LIGHTGRAY);
-        y += 18.0f;
-
-        if (DrawButton(Rectangle{barX + 18, y, 124, 26}, "Short (150)", Color{28, 38, 54, 230}, RAYWHITE,
-                       launchSettings.trajectorySteps == 150)) {
+        DrawText("Trajectory Preview Steps:", static_cast<int>(xStart + 16), static_cast<int>(vy + 4), 13, LIGHTGRAY);
+        if (DrawButton(Rectangle{xStart + 195, vy, 68, 26}, "150", Color{28, 38, 54, 230}, RAYWHITE,
+                       launchSettings.trajectorySteps == 150, 12)) {
             launchSettings.trajectorySteps = 150;
         }
-        if (DrawButton(Rectangle{barX + 152, y, 124, 26}, "Medium (250)", Color{28, 38, 54, 230}, RAYWHITE,
-                       launchSettings.trajectorySteps == 250)) {
+        if (DrawButton(Rectangle{xStart + 270, vy, 68, 26}, "250", Color{28, 38, 54, 230}, RAYWHITE,
+                       launchSettings.trajectorySteps == 250, 12)) {
             launchSettings.trajectorySteps = 250;
         }
-        if (DrawButton(Rectangle{barX + 286, y, 124, 26}, "Long (400)", Color{28, 38, 54, 230}, RAYWHITE,
-                       launchSettings.trajectorySteps == 400)) {
+        if (DrawButton(Rectangle{xStart + 345, vy, 68, 26}, "400", Color{28, 38, 54, 230}, RAYWHITE,
+                       launchSettings.trajectorySteps == 400, 12)) {
             launchSettings.trajectorySteps = 400;
         }
     }
 }
 
 bool Renderer::isMouseOverUI(Vector2 mousePos, int screenWidth, int screenHeight) const {
-    // 1. Diagnostics panel (Top-Left)
     if (CheckCollisionPointRec(mousePos, Rectangle{15, 15, 340, 265})) return true;
-
-    // 2. Preset cheat-sheet (Bottom-Left)
     if (CheckCollisionPointRec(mousePos, Rectangle{15, static_cast<float>(screenHeight - 115), 460, 100})) return true;
 
-    // 3. Right Sidebar
     if (sidebarVisible) {
         if (mousePos.x >= screenWidth - sidebarWidth) return true;
     } else {
-        // Toggle pill when collapsed
-        if (CheckCollisionPointRec(mousePos, Rectangle{static_cast<float>(screenWidth - 145), 18.0f, 132.0f, 32.0f})) return true;
+        if (CheckCollisionPointRec(mousePos, Rectangle{static_cast<float>(screenWidth - 160), 16.0f, 145.0f, 36.0f})) return true;
     }
 
     return false;
