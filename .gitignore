@@ -1,0 +1,21 @@
+# Build artifacts
+build/
+bin/
+out/
+*.exe
+*.obj
+*.o
+*.a
+*.pdb
+*.ilk
+
+# IDE and Editor files
+.vscode/
+.vs/
+*.user
+*.suo
+
+# OS generated
+Thumbs.db
+Desktop.ini
+.DS_Store
