@@ -12,17 +12,21 @@ A high-performance, modular 2D N-Body celestial mechanics and gravity simulation
   - **Newtonian Gravity with Plummer Softening:**
     $$F = \frac{G \cdot m_1 \cdot m_2}{(r^2 + \epsilon^2)}$$
     Prevents numerical singularity explosions during hyper-close encounters.
-- **Collision Dynamics:**
-  - **Inelastic Merging:** Total linear momentum conservation ($m_1 \vec{v}_1 + m_2 \vec{v}_2 = (m_1 + m_2)\vec{v}_{new}$), 2D disk volume conservation ($R = \sqrt{r_1^2 + r_2^2}$), mass-weighted barycentric positioning and color blending.
-  - **Elastic Bouncing:** Momentum and kinetic energy preserving impulse resolution with overlap correction.
+- **Collision Dynamics & Destruction Physics:**
+  - **Cataclysmic Destruction & Shattering:** High-energy impacts trigger explosive fragmentation where celestial bodies break apart into dynamic child debris fragments while strictly conserving linear momentum and mass.
+  - **Destruction Particle System:** Over 150+ glowing incandescent embers, molten sparks, and expanding shockwave rings with dynamic camera shake upon collision or detonation.
+  - **Inelastic Merging:** Total linear momentum conservation ($m_1 \vec{v}_1 + m_2 \vec{v}_2 = (m_1 + m_2)\vec{v}_{new}$), 2D disk area conservation ($R = \sqrt{r_1^2 + r_2^2}$), and collision sparks.
+  - **Elastic Bouncing:** Momentum and kinetic energy preserving impulse resolution with contact sparks.
   - **Ghost Mode:** Uncollided pass-through.
+- **High-DPI Anti-Aliased Typography:**
+  - Modern Segoe UI / Arial TrueType vector typography with bilinear texture filtering for crystal-clear readability across all resolutions and display scaling factors.
 - **Object Inspector & Real-Time Property Modifiers:**
-  - **Full-Height Docked Sidebar:** Redesigned from a corner box into an enlarged 430px full-height sidebar with dedicated **Inspector** and **Spawner** tabs.
+  - **Full-Height Docked Sidebar:** Enlarged 480px–560px full-height sidebar with spacious card layouts utilizing the entire screen height.
   - **Hide / Show Option:** Collapse the sidebar anytime with the **`[HIDE >>]`** button or **`H`** key; a glowing **`[<< SHOW SIDEBAR]`** pill tab remains on the right screen edge for instant 1-click re-opening.
   - **Click any body** in space to inspect and lock onto it with a futuristic targeting reticle.
   - **Live Diagnostics:** Surface gravity $g = \frac{G m}{r^2 + \epsilon^2}$, escape velocity $v_{esc} = \sqrt{\frac{2 G m}{r}}$, net gravitational pull $|\vec{a}|$, instantaneous speed $|\vec{v}|$, density $\rho = \frac{m}{\pi r^2}$, coordinates $(X,Y)$, and velocity $(V_x, V_y)$.
   - **Live Adjustments:** Real-time modification of Mass (`-50%` to `+50%`, `x10`, `/10`), Radius, and Density with stepper buttons.
-  - **Action Tools:** Lock Camera Track, Toggle Static Anchor, Halt Velocity ($v=0$), Auto Circularize Orbit around dominant attractor, 8-color palette picker, Clear Trail, and Destroy Body.
+  - **Action Tools:** Lock Camera Track, Toggle Static Anchor, Halt Velocity ($v=0$), Auto Circularize Orbit around dominant attractor, 8-color palette picker, Clear Trail, and Cataclysmic Object Explosion (`K`).
 - **Custom Launcher / Spawner Settings Tab (`TAB`):**
   - **Presets:** Quickly switch launch payload between *Asteroid*, *Moon*, *Terrestrial Planet*, *Gas Giant*, *Star*, or *Singularity (Black Hole)*.
   - **Spawn Modes:**
@@ -75,7 +79,8 @@ A high-performance, modular 2D N-Body celestial mechanics and gravity simulation
 | `2` | Load **Figure-8 Three-Body** Preset |
 | `3` | Load **Binary Star + Protoplanetary Disk** Preset |
 | `I` | Toggle Integrator (**Velocity Verlet** $\leftrightarrow$ **Symplectic Euler**) |
-| `C` | Cycle Collision Mode (**Inelastic Merge** $\rightarrow$ **Elastic** $\rightarrow$ **Ghost**) |
+| `C` | Cycle Collision Mode (**Inelastic Merge** $\rightarrow$ **Destruction Shatter** $\rightarrow$ **Elastic** $\rightarrow$ **Ghost**) |
+| `K` | Cataclysmic Destruction of selected body (Explosion + Particles + Shockwave) |
 | `T` | Toggle Orbital Trails |
 | `V` | Toggle Velocity Vectors |
 | `G` | Toggle Coordinate Grid & Distance Rings |

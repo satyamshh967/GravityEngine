@@ -102,6 +102,171 @@ void GravityEngine::step(double dt) {
     handleCollisions();
 }
 
+void GravityEngine::spawnShockwave(Vec2 pos, float maxRadius, Color color, float speed) {
+    if (shockwaves.size() > 30) {
+        shockwaves.erase(shockwaves.begin());
+    }
+    ShockwaveRing ring;
+    ring.center = pos;
+    ring.radius = 4.0f;
+    ring.maxRadius = maxRadius;
+    ring.speed = speed;
+    ring.color = color;
+    ring.alpha = 1.0f;
+    shockwaves.push_back(ring);
+}
+
+void GravityEngine::spawnImpactSparks(Vec2 pos, Vec2 normal, double energy, Color c1, Color c2, int count) {
+    std::mt19937 rng(static_cast<unsigned>(pos.x * 100 + pos.y * 10 + count));
+    std::uniform_real_distribution<float> angleSpread(-1.2f, 1.2f);
+    std::uniform_real_distribution<float> speedDist(15.0f, static_cast<float>(std::min(220.0, 20.0 + std::sqrt(energy) * 8.0)));
+    std::uniform_real_distribution<float> lifeDist(0.4f, 1.4f);
+    std::uniform_real_distribution<float> sizeDist(1.5f, 4.0f);
+    std::uniform_real_distribution<float> colMix(0.0f, 1.0f);
+
+    float baseAngle = std::atan2(static_cast<float>(normal.y), static_cast<float>(normal.x));
+
+    for (int k = 0; k < count; ++k) {
+        if (destructionParticles.size() > 800) {
+            destructionParticles.erase(destructionParticles.begin());
+        }
+
+        float a = baseAngle + angleSpread(rng);
+        float spd = speedDist(rng);
+        float life = lifeDist(rng);
+        float t = colMix(rng);
+
+        Color pCol{
+            static_cast<unsigned char>(c1.r * (1.0f - t) + c2.r * t),
+            static_cast<unsigned char>(c1.g * (1.0f - t) + c2.g * t),
+            static_cast<unsigned char>(c1.b * (1.0f - t) + c2.b * t),
+            255
+        };
+
+        DestructionParticle p;
+        p.pos = pos;
+        p.vel = Vec2{std::cos(a) * spd, std::sin(a) * spd};
+        p.color = pCol;
+        p.size = sizeDist(rng);
+        p.lifetime = life;
+        p.maxLifetime = life;
+        destructionParticles.push_back(p);
+    }
+}
+
+void GravityEngine::triggerDestructionExplosion(int bodyId, int particleCount) {
+    Body* target = getBodyById(bodyId);
+    if (!target) return;
+
+    Vec2 pPos = target->pos;
+    Vec2 pVel = target->vel;
+    double pMass = target->mass;
+    double pRadius = target->radius;
+    Color pCol = target->color;
+
+    // Camera shake
+    cameraShakeIntensity = std::clamp(static_cast<float>(std::log10(pMass + 10.0) * 4.5f), 4.0f, 25.0f);
+
+    // Shockwave rings
+    spawnShockwave(pPos, static_cast<float>(pRadius * 7.0f), Color{255, 230, 120, 255}, 260.0f);
+    spawnShockwave(pPos, static_cast<float>(pRadius * 4.0f), Color{255, 100, 50, 255}, 180.0f);
+
+    // Spawn destruction embers and molten debris particles
+    std::mt19937 rng(static_cast<unsigned>(pPos.x * 37 + pPos.y * 19 + pMass));
+    std::uniform_real_distribution<float> angleDist(0.0f, 6.2831853f);
+    std::uniform_real_distribution<float> speedDist(30.0f, 220.0f);
+    std::uniform_real_distribution<float> lifeDist(0.8f, 2.8f);
+    std::uniform_real_distribution<float> sizeDist(2.0f, 5.5f);
+
+    for (int k = 0; k < particleCount; ++k) {
+        if (destructionParticles.size() > 900) {
+            destructionParticles.erase(destructionParticles.begin());
+        }
+
+        float a = angleDist(rng);
+        float spd = speedDist(rng);
+        float life = lifeDist(rng);
+
+        Color emberCol = (k % 3 == 0) ? Color{255, 250, 200, 255} :
+                         (k % 3 == 1) ? Color{255, 160, 40, 255} :
+                                        Color{255, 60, 40, 255};
+
+        DestructionParticle p;
+        p.pos = pPos;
+        p.vel = pVel + Vec2{std::cos(a) * spd, std::sin(a) * spd};
+        p.color = emberCol;
+        p.size = sizeDist(rng);
+        p.lifetime = life;
+        p.maxLifetime = life;
+        destructionParticles.push_back(p);
+    }
+
+    // Spawn dynamic shattered fragments if mass is large enough
+    if (pMass > 4.0) {
+        int fragmentCount = std::clamp(static_cast<int>(3 + pMass * 0.05), 3, 6);
+        double fragmentTotalMass = pMass * 0.4; // 40% of mass forms orbiting debris
+        double singleFragMass = fragmentTotalMass / fragmentCount;
+        double fragRadius = std::max(1.8, pRadius * 0.35);
+
+        for (int f = 0; f < fragmentCount; ++f) {
+            float fragAngle = (static_cast<float>(f) / fragmentCount) * 6.2831853f + 0.3f;
+            float ejectSpeed = static_cast<float>(20.0 + std::sqrt(G * pMass / pRadius) * 0.6);
+
+            Vec2 fragVel = pVel + Vec2{std::cos(fragAngle) * ejectSpeed, std::sin(fragAngle) * ejectSpeed};
+            Vec2 fragPos = pPos + Vec2{std::cos(fragAngle) * (pRadius * 1.2), std::sin(fragAngle) * (pRadius * 1.2)};
+
+            int fragId = nextParticleBodyId++;
+            Body frag(fragId, "Debris #" + std::to_string(fragId),
+                      singleFragMass, fragRadius, fragPos, fragVel, pCol, false);
+            frag.maxTrailPoints = 80;
+            bodies.push_back(frag);
+        }
+    }
+
+    deleteBody(bodyId);
+    computeAccelerations();
+}
+
+void GravityEngine::updateParticles(double dt) {
+    // 1. Update destruction particles
+    for (auto it = destructionParticles.begin(); it != destructionParticles.end();) {
+        it->lifetime -= static_cast<float>(dt);
+        if (it->lifetime <= 0.0f) {
+            it = destructionParticles.erase(it);
+            continue;
+        }
+
+        // Apply gravitational acceleration from nearby bodies
+        Vec2 gravAcc = computeNetAccelerationOnPoint(it->pos);
+        it->vel += gravAcc * dt;
+
+        // Subtle atmospheric / vacuum drag
+        it->vel *= (1.0 - 0.15 * dt);
+        it->pos += it->vel * dt;
+
+        // Fade size and color from hot incandescent to dark cool embers
+        float progress = it->lifetime / it->maxLifetime;
+        it->color.a = static_cast<unsigned char>(std::clamp(progress * 255.0f, 0.0f, 255.0f));
+
+        ++it;
+    }
+
+    // 2. Update shockwave rings
+    for (auto it = shockwaves.begin(); it != shockwaves.end();) {
+        it->radius += it->speed * static_cast<float>(dt);
+        it->alpha = std::clamp(1.0f - (it->radius / it->maxRadius), 0.0f, 1.0f);
+
+        if (it->radius >= it->maxRadius || it->alpha <= 0.01f) {
+            it = shockwaves.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // 3. Decay camera shake
+    cameraShakeIntensity = std::max(0.0f, cameraShakeIntensity - 9.0f * static_cast<float>(dt));
+}
+
 void GravityEngine::handleCollisions() {
     if (collisionMode == CollisionMode::None || bodies.size() < 2) {
         return;
@@ -132,9 +297,14 @@ void GravityEngine::handleCollisions() {
                             if (!bodies[j].isStatic) {
                                 bodies[j].vel += normal * (impulse * invM2);
                             }
+
+                            // Spawn elastic bounce sparks
+                            double energy = 0.5 * (bodies[i].mass * bodies[j].mass / (bodies[i].mass + bodies[j].mass)) * vNorm * vNorm;
+                            Vec2 contactPt = bodies[i].pos + normal * bodies[i].radius;
+                            spawnImpactSparks(contactPt, normal, energy, bodies[i].color, bodies[j].color, 25);
                         }
 
-                        // Positional overlap resolution to prevent penetration/trapping
+                        // Positional overlap resolution
                         double overlap = minDist - dist;
                         if (overlap > 0.0) {
                             if (!bodies[i].isStatic) {
@@ -148,7 +318,7 @@ void GravityEngine::handleCollisions() {
                 }
             }
         }
-    } else if (collisionMode == CollisionMode::InelasticMerge) {
+    } else if (collisionMode == CollisionMode::InelasticMerge || collisionMode == CollisionMode::DestructiveShatter) {
         std::vector<bool> removed(bodies.size(), false);
         bool anyMerged = false;
 
@@ -163,6 +333,24 @@ void GravityEngine::handleCollisions() {
                 if (dist < minDist) {
                     size_t survivor = i;
                     size_t absorbed = j;
+
+                    Vec2 relVel = bodies[j].vel - bodies[i].vel;
+                    double vRel = relVel.length();
+                    double reducedMass = (bodies[i].mass * bodies[j].mass) / (bodies[i].mass + bodies[j].mass);
+                    double impactEnergy = 0.5 * reducedMass * vRel * vRel;
+
+                    // If DestructiveShatter mode and impact energy is severe:
+                    if (collisionMode == CollisionMode::DestructiveShatter && (vRel > 15.0 || impactEnergy > 500.0)) {
+                        Vec2 contactPoint = (bodies[i].pos * bodies[j].mass + bodies[j].pos * bodies[i].mass) / (bodies[i].mass + bodies[j].mass);
+                        spawnShockwave(contactPoint, static_cast<float>(minDist * 4.0f), Color{255, 180, 50, 255}, 220.0f);
+                        spawnImpactSparks(contactPoint, relVel.normalized(), impactEnergy, bodies[i].color, bodies[j].color, 90);
+                        cameraShakeIntensity = std::clamp(static_cast<float>(vRel * 0.4f), 3.0f, 20.0f);
+                    } else {
+                        // Impact flash & sparks on merge
+                        Vec2 contactPoint = (bodies[i].pos + bodies[j].pos) * 0.5;
+                        spawnShockwave(contactPoint, static_cast<float>(minDist * 2.5f), Color{255, 230, 100, 255}, 160.0f);
+                        spawnImpactSparks(contactPoint, relVel.normalized(), impactEnergy, bodies[i].color, bodies[j].color, 45);
+                    }
 
                     bool survivorWasStatic = bodies[survivor].isStatic;
                     bool absorbedWasStatic = bodies[absorbed].isStatic;
@@ -567,8 +755,9 @@ const char* GravityEngine::getIntegratorName() const {
 const char* GravityEngine::getCollisionModeName() const {
     switch (collisionMode) {
         case CollisionMode::None: return "None (Ghost)";
-        case CollisionMode::Elastic: return "Elastic";
+        case CollisionMode::Elastic: return "Elastic (Bounce)";
         case CollisionMode::InelasticMerge: return "Inelastic (Merge)";
+        case CollisionMode::DestructiveShatter: return "Destruction (Shatter)";
         default: return "Unknown";
     }
 }

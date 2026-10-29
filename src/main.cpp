@@ -165,12 +165,20 @@ int main(int argc, char* argv[]) {
         // Collision mode toggle
         if (IsKeyPressed(KEY_C)) {
             if (engine.collisionMode == CollisionMode::InelasticMerge) {
+                engine.collisionMode = CollisionMode::DestructiveShatter;
+            } else if (engine.collisionMode == CollisionMode::DestructiveShatter) {
                 engine.collisionMode = CollisionMode::Elastic;
             } else if (engine.collisionMode == CollisionMode::Elastic) {
                 engine.collisionMode = CollisionMode::None;
             } else {
                 engine.collisionMode = CollisionMode::InelasticMerge;
             }
+        }
+
+        // Cataclysmic Destruction Hotkey [K]
+        if (IsKeyPressed(KEY_K) && selectedBodyId != -1) {
+            engine.triggerDestructionExplosion(selectedBodyId);
+            selectedBodyId = -1;
         }
 
         // Visual toggles
@@ -320,13 +328,26 @@ int main(int argc, char* argv[]) {
 
             while (accumulator >= fixedDt) {
                 engine.step(fixedDt);
+                engine.updateParticles(fixedDt);
                 accumulator -= fixedDt;
             }
+        } else {
+            // When paused, still decay particles smoothly
+            engine.updateParticles(dt * 0.5);
         }
 
         // --- Rendering ---
         BeginDrawing();
         ClearBackground(Color{10, 12, 20, 255}); // Deep space aesthetic
+
+        // Apply dynamic impact camera shake
+        Vector2 savedCamTarget = renderer.camera.target;
+        if (engine.cameraShakeIntensity > 0.1f) {
+            float shakeAngle = static_cast<float>(GetRandomValue(0, 360)) * (3.14159265f / 180.0f);
+            float shakeDist = static_cast<float>(GetRandomValue(5, 100)) * 0.01f * engine.cameraShakeIntensity;
+            renderer.camera.target.x += std::cos(shakeAngle) * shakeDist;
+            renderer.camera.target.y += std::sin(shakeAngle) * shakeDist;
+        }
 
         // 1. World-Space Rendering
         BeginMode2D(renderer.camera);
@@ -334,6 +355,9 @@ int main(int argc, char* argv[]) {
         renderer.drawGrid();
         renderer.drawTrails(engine.bodies);
         renderer.drawBodies(engine.bodies, selectedBodyId);
+
+        // Draw destruction sparks, fireballs, and shockwaves
+        renderer.drawDestructionEffects(engine);
 
         // Highlight selected body reticle
         if (selectedBodyId != -1) {
@@ -361,6 +385,7 @@ int main(int argc, char* argv[]) {
         }
 
         EndMode2D();
+        renderer.camera.target = savedCamTarget; // Restore camera target after shake
 
         // 2. Screen-Space UI Panels
         renderer.drawHUD(engine, timeScale, isPaused, launchSettings, currentW, currentH);
