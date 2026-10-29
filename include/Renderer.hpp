@@ -5,6 +5,11 @@
 #include <raylib.h>
 #include <vector>
 
+enum class SidebarTab {
+    Inspector,
+    Spawner
+};
+
 class Renderer {
 public:
     Camera2D camera{};
@@ -13,6 +18,11 @@ public:
     bool showGrid{true};
     bool followHeaviest{false};
     int followedBodyId{-1};
+
+    // Sidebar state & dimensions
+    float sidebarWidth{430.0f};
+    bool sidebarVisible{true};
+    SidebarTab activeTab{SidebarTab::Inspector};
 
     float animTime{0.0f};
 
@@ -31,19 +41,16 @@ public:
     void drawTrajectoryPreview(const std::vector<Vec2>& trajectoryPoints,
                                Vec2 spawnPos, double spawnRadius, Color spawnColor) const;
 
-    // HUD & Interactive UI Panels in Screen Space
+    // HUD & Interactive Sidebar in Screen Space
     void drawHUD(const GravityEngine& engine, float timeScale, bool isPaused,
-                 const LaunchSettings& launchSettings, int screenWidth, int screenHeight,
-                 bool showLauncherPanel) const;
+                 const LaunchSettings& launchSettings, int screenWidth, int screenHeight) const;
 
-    void drawInspectorPanel(Body* body, GravityEngine& engine, int screenWidth, int screenHeight,
-                            bool& shouldDeselect, bool& shouldDelete);
+    void drawSidebar(Body* selectedBody, GravityEngine& engine, LaunchSettings& launchSettings,
+                     int screenWidth, int screenHeight, bool& shouldDeselect, bool& shouldDelete);
 
-    void drawLauncherSettingsPanel(LaunchSettings& settings, int screenWidth, int screenHeight,
-                                  bool& isOpen);
+    void drawSidebarTogglePill(int screenWidth, int screenHeight);
 
-    [[nodiscard]] bool isMouseOverUI(Vector2 mousePos, bool hasSelection, bool showLauncherSettings,
-                                     int screenWidth, int screenHeight) const;
+    [[nodiscard]] bool isMouseOverUI(Vector2 mousePos, int screenWidth, int screenHeight) const;
 
     // Coordinate conversion
     [[nodiscard]] Vec2 screenToWorld(Vector2 screenPos) const;

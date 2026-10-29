@@ -17,11 +17,13 @@ A high-performance, modular 2D N-Body celestial mechanics and gravity simulation
   - **Elastic Bouncing:** Momentum and kinetic energy preserving impulse resolution with overlap correction.
   - **Ghost Mode:** Uncollided pass-through.
 - **Object Inspector & Real-Time Property Modifiers:**
+  - **Full-Height Docked Sidebar:** Redesigned from a corner box into an enlarged 430px full-height sidebar with dedicated **Inspector** and **Spawner** tabs.
+  - **Hide / Show Option:** Collapse the sidebar anytime with the **`[HIDE >>]`** button or **`H`** key; a glowing **`[<< SHOW SIDEBAR]`** pill tab remains on the right screen edge for instant 1-click re-opening.
   - **Click any body** in space to inspect and lock onto it with a futuristic targeting reticle.
-  - **Live Diagnostics:** Surface gravity $g = \frac{G m}{r^2}$, escape velocity $v_{esc} = \sqrt{\frac{2 G m}{r}}$, net gravitational pull $\vec{a}$, instantaneous speed $|\vec{v}|$, density $\rho = \frac{m}{\pi r^2}$, and coordinates.
-  - **Live Adjustments:** Real-time modification of Mass, Radius, and Density with stepper buttons.
-  - **Action Tools:** Lock Camera Track, Toggle Static Anchor, Halt Velocity ($v=0$), Auto Circularize Orbit around dominant attractor, 6-color palette picker, Clear Trail, and Destroy Body.
-- **Custom Launcher / Spawner Settings Menu (`TAB`):**
+  - **Live Diagnostics:** Surface gravity $g = \frac{G m}{r^2 + \epsilon^2}$, escape velocity $v_{esc} = \sqrt{\frac{2 G m}{r}}$, net gravitational pull $|\vec{a}|$, instantaneous speed $|\vec{v}|$, density $\rho = \frac{m}{\pi r^2}$, coordinates $(X,Y)$, and velocity $(V_x, V_y)$.
+  - **Live Adjustments:** Real-time modification of Mass (`-50%` to `+50%`, `x10`, `/10`), Radius, and Density with stepper buttons.
+  - **Action Tools:** Lock Camera Track, Toggle Static Anchor, Halt Velocity ($v=0$), Auto Circularize Orbit around dominant attractor, 8-color palette picker, Clear Trail, and Destroy Body.
+- **Custom Launcher / Spawner Settings Tab (`TAB`):**
   - **Presets:** Quickly switch launch payload between *Asteroid*, *Moon*, *Terrestrial Planet*, *Gas Giant*, *Star*, or *Singularity (Black Hole)*.
   - **Spawn Modes:**
     - *Slingshot (Drag):* Pull back to set direction and velocity with real-time trajectory prediction.
@@ -64,9 +66,10 @@ A high-performance, modular 2D N-Body celestial mechanics and gravity simulation
 
 | Key / Input | Action |
 |---|---|
-| `Left Click Body` | Select and open **Object Inspector** |
-| `TAB` | Open / Close **Launcher Settings Menu** |
-| `ESC` | Deselect body or close active menu |
+| `Left Click Body` | Select and open **Object Inspector** in sidebar |
+| `H` | Hide / Show **Right Sidebar** |
+| `TAB` | Toggle between **Inspector** and **Spawner** tabs |
+| `ESC` | Deselect body or hide sidebar |
 | `SPACE` | Pause / Resume simulation |
 | `1` | Load **Solar System** Preset |
 | `2` | Load **Figure-8 Three-Body** Preset |

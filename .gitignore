@@ -2,6 +2,7 @@
 build/
 bin/
 out/
+scratch/
 *.exe
 *.obj
 *.o

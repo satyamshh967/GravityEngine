@@ -119,12 +119,12 @@ void GravityEngine::handleCollisions() {
                     Vec2 relVel = bodies[j].vel - bodies[i].vel;
                     double vNorm = relVel.dot(normal);
 
-                    if (vNorm < 0.0) { // Moving toward each other
-                        double invM1 = bodies[i].isStatic ? 0.0 : (1.0 / bodies[i].mass);
-                        double invM2 = bodies[j].isStatic ? 0.0 : (1.0 / bodies[j].mass);
-                        double invMSum = invM1 + invM2;
+                    double invM1 = bodies[i].isStatic ? 0.0 : (1.0 / bodies[i].mass);
+                    double invM2 = bodies[j].isStatic ? 0.0 : (1.0 / bodies[j].mass);
+                    double invMSum = invM1 + invM2;
 
-                        if (invMSum > 1e-14) {
+                    if (invMSum > 1e-14) {
+                        if (vNorm < 0.0) { // Moving toward each other
                             double impulse = -(1.0 + restitution) * vNorm / invMSum;
                             if (!bodies[i].isStatic) {
                                 bodies[i].vel -= normal * (impulse * invM1);
@@ -132,9 +132,11 @@ void GravityEngine::handleCollisions() {
                             if (!bodies[j].isStatic) {
                                 bodies[j].vel += normal * (impulse * invM2);
                             }
+                        }
 
-                            // Positional overlap resolution
-                            double overlap = minDist - dist;
+                        // Positional overlap resolution to prevent penetration/trapping
+                        double overlap = minDist - dist;
+                        if (overlap > 0.0) {
                             if (!bodies[i].isStatic) {
                                 bodies[i].pos -= normal * (overlap * (invM1 / invMSum));
                             }
@@ -159,48 +161,60 @@ void GravityEngine::handleCollisions() {
                 double minDist = bodies[i].radius + bodies[j].radius;
 
                 if (dist < minDist) {
-                    size_t primary = i;
-                    size_t secondary = j;
+                    size_t survivor = i;
+                    size_t absorbed = j;
 
-                    // Choose primary: static body takes precedence; otherwise larger mass
-                    if (bodies[secondary].isStatic || (!bodies[primary].isStatic && bodies[secondary].mass > bodies[primary].mass)) {
-                        primary = j;
-                        secondary = i;
-                    }
+                    bool survivorWasStatic = bodies[survivor].isStatic;
+                    bool absorbedWasStatic = bodies[absorbed].isStatic;
+                    bool shouldTakeAbsorbedIdentity = absorbedWasStatic || (!survivorWasStatic && bodies[absorbed].mass > bodies[survivor].mass);
 
-                    double m1 = bodies[primary].mass;
-                    double m2 = bodies[secondary].mass;
+                    double m1 = bodies[survivor].mass;
+                    double m2 = bodies[absorbed].mass;
                     double totalMass = m1 + m2;
 
-                    // Conservation of linear momentum: (m1*v1 + m2*v2) / (m1 + m2)
-                    if (!bodies[primary].isStatic) {
-                        bodies[primary].vel = (bodies[primary].vel * m1 + bodies[secondary].vel * m2) / totalMass;
-                        bodies[primary].pos = (bodies[primary].pos * m1 + bodies[secondary].pos * m2) / totalMass;
+                    Vec2 newVel = bodies[survivor].vel;
+                    Vec2 newPos = bodies[survivor].pos;
+
+                    if (survivorWasStatic) {
+                        // Survivor remains static
+                    } else if (absorbedWasStatic) {
+                        // Absorbed was static, survivor takes its static anchor
+                        bodies[survivor].isStatic = true;
+                        newPos = bodies[absorbed].pos;
+                        newVel = Vec2{0.0, 0.0};
+                    } else {
+                        // Exact conservation of linear momentum: (m1*v1 + m2*v2) / (m1 + m2)
+                        newVel = (bodies[survivor].vel * m1 + bodies[absorbed].vel * m2) / totalMass;
+                        newPos = (bodies[survivor].pos * m1 + bodies[absorbed].pos * m2) / totalMass;
                     }
 
+                    bodies[survivor].vel = newVel;
+                    bodies[survivor].pos = newPos;
+
                     // 2D disk area conservation: R_new = sqrt(r1^2 + r2^2)
-                    double newRadius = std::sqrt(bodies[primary].radius * bodies[primary].radius +
-                                                 bodies[secondary].radius * bodies[secondary].radius);
-                    bodies[primary].radius = std::min(newRadius, 100.0);
-                    bodies[primary].mass = totalMass;
+                    double newRadius = std::sqrt(bodies[survivor].radius * bodies[survivor].radius +
+                                                 bodies[absorbed].radius * bodies[absorbed].radius);
+                    bodies[survivor].radius = std::min(newRadius, 140.0);
+                    bodies[survivor].mass = totalMass;
 
                     // Weighted color blend
-                    Color c1 = bodies[primary].color;
-                    Color c2 = bodies[secondary].color;
-                    bodies[primary].color = Color{
+                    Color c1 = bodies[survivor].color;
+                    Color c2 = bodies[absorbed].color;
+                    bodies[survivor].color = Color{
                         static_cast<unsigned char>(std::clamp((c1.r * m1 + c2.r * m2) / totalMass, 0.0, 255.0)),
                         static_cast<unsigned char>(std::clamp((c1.g * m1 + c2.g * m2) / totalMass, 0.0, 255.0)),
                         static_cast<unsigned char>(std::clamp((c1.b * m1 + c2.b * m2) / totalMass, 0.0, 255.0)),
                         255
                     };
 
-                    removed[secondary] = true;
-                    anyMerged = true;
-
-                    if (primary == j) {
-                        bodies[i] = bodies[j];
-                        removed[j] = true;
+                    if (shouldTakeAbsorbedIdentity) {
+                        bodies[survivor].id = bodies[absorbed].id;
+                        bodies[survivor].name = std::move(bodies[absorbed].name);
+                        bodies[survivor].trail = std::move(bodies[absorbed].trail);
                     }
+
+                    removed[absorbed] = true;
+                    anyMerged = true;
                 }
             }
         }

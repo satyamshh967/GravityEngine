@@ -89,9 +89,8 @@ int main(int argc, char* argv[]) {
     bool isPaused = false;
     double accumulator = 0.0;
 
-    // Selection & Spawner UI state
+    // Selection & Spawner state
     int selectedBodyId = -1;
-    bool showLauncherSettings = false;
 
     // Slingshot spawning state
     bool isDragging = false;
@@ -112,17 +111,28 @@ int main(int argc, char* argv[]) {
             isPaused = !isPaused;
         }
 
-        // Toggle Launcher / Spawner Settings Panel
-        if (IsKeyPressed(KEY_TAB)) {
-            showLauncherSettings = !showLauncherSettings;
+        // Toggle Right Sidebar visibility [H]
+        if (IsKeyPressed(KEY_H)) {
+            renderer.sidebarVisible = !renderer.sidebarVisible;
         }
 
-        // Deselect or close panels with ESC
+        // Toggle Sidebar Spawner Tab [TAB]
+        if (IsKeyPressed(KEY_TAB)) {
+            if (!renderer.sidebarVisible) {
+                renderer.sidebarVisible = true;
+                renderer.activeTab = SidebarTab::Spawner;
+            } else {
+                renderer.activeTab = (renderer.activeTab == SidebarTab::Spawner)
+                                     ? SidebarTab::Inspector : SidebarTab::Spawner;
+            }
+        }
+
+        // Deselect or close sidebar with ESC
         if (IsKeyPressed(KEY_ESCAPE)) {
             if (selectedBodyId != -1) {
                 selectedBodyId = -1;
-            } else if (showLauncherSettings) {
-                showLauncherSettings = false;
+            } else if (renderer.sidebarVisible) {
+                renderer.sidebarVisible = false;
             }
         }
 
@@ -225,7 +235,7 @@ int main(int argc, char* argv[]) {
         // Mouse interactions in world coordinates
         Vector2 mouseScreen = GetMousePosition();
         Vec2 mouseWorld = renderer.screenToWorld(mouseScreen);
-        bool mouseOverUI = renderer.isMouseOverUI(mouseScreen, selectedBodyId != -1, showLauncherSettings, currentW, currentH);
+        bool mouseOverUI = renderer.isMouseOverUI(mouseScreen, currentW, currentH);
 
         // Object selection & Launch Spawning
         if (!mouseOverUI) {
@@ -234,6 +244,8 @@ int main(int argc, char* argv[]) {
                 int clickedId = engine.findNearestBody(mouseWorld, 28.0 / renderer.camera.zoom);
                 if (clickedId != -1) {
                     selectedBodyId = clickedId;
+                    renderer.activeTab = SidebarTab::Inspector;
+                    renderer.sidebarVisible = true; // Auto-open sidebar when clicking an object
                     isDragging = false;
                 } else {
                     // Clicked on empty space
@@ -246,6 +258,8 @@ int main(int argc, char* argv[]) {
                         newBody.maxTrailPoints = launchSettings.trailLength;
                         engine.addBody(newBody);
                         selectedBodyId = spawnedId;
+                        renderer.activeTab = SidebarTab::Inspector;
+                        renderer.sidebarVisible = true;
                     } else if (launchSettings.spawnMode == LaunchSpawnMode::Stationary) {
                         int spawnedId = nextSpawnId++;
                         Body newBody(spawnedId, launchSettings.typeName + " #" + std::to_string(spawnedId),
@@ -254,6 +268,8 @@ int main(int argc, char* argv[]) {
                         newBody.maxTrailPoints = launchSettings.trailLength;
                         engine.addBody(newBody);
                         selectedBodyId = spawnedId;
+                        renderer.activeTab = SidebarTab::Inspector;
+                        renderer.sidebarVisible = true;
                     } else {
                         // Slingshot drag launch mode
                         selectedBodyId = -1;
@@ -292,6 +308,8 @@ int main(int argc, char* argv[]) {
 
                 isDragging = false;
                 selectedBodyId = spawnedId;
+                renderer.activeTab = SidebarTab::Inspector;
+                renderer.sidebarVisible = true;
             }
         }
 
@@ -345,37 +363,20 @@ int main(int argc, char* argv[]) {
         EndMode2D();
 
         // 2. Screen-Space UI Panels
-        renderer.drawHUD(engine, timeScale, isPaused, launchSettings, currentW, currentH, showLauncherSettings);
+        renderer.drawHUD(engine, timeScale, isPaused, launchSettings, currentW, currentH);
 
-        // Toggle Launcher button in top-right
-        Rectangle spawnerBtnRect{static_cast<float>(currentW - 215), 15.0f, 200.0f, 32.0f};
-        if (Renderer::DrawButton(spawnerBtnRect,
-                                 showLauncherSettings ? "CLOSE SPAWNER MENU [TAB]" : "OPEN SPAWNER MENU [TAB]",
-                                 Color{25, 35, 55, 230}, showLauncherSettings ? GOLD : SKYBLUE, showLauncherSettings)) {
-            showLauncherSettings = !showLauncherSettings;
-        }
+        // Draw Enlarged Full-Height Right Sidebar (Inspector & Spawner Tabs) with Hide/Show
+        Body* sel = (selectedBodyId != -1) ? engine.getBodyById(selectedBodyId) : nullptr;
+        bool shouldDeselect = false;
+        bool shouldDelete = false;
 
-        // Draw Object Inspector Panel (if a body is selected)
-        if (selectedBodyId != -1) {
-            Body* sel = engine.getBodyById(selectedBodyId);
-            if (sel) {
-                bool shouldDeselect = false;
-                bool shouldDelete = false;
-                renderer.drawInspectorPanel(sel, engine, currentW, currentH, shouldDeselect, shouldDelete);
+        renderer.drawSidebar(sel, engine, launchSettings, currentW, currentH, shouldDeselect, shouldDelete);
 
-                if (shouldDelete) {
-                    engine.deleteBody(selectedBodyId);
-                    selectedBodyId = -1;
-                } else if (shouldDeselect) {
-                    selectedBodyId = -1;
-                }
-            } else {
-                selectedBodyId = -1;
-            }
-        }
-        // Else if Spawner menu is open, show Launcher Settings panel
-        else if (showLauncherSettings) {
-            renderer.drawLauncherSettingsPanel(launchSettings, currentW, currentH, showLauncherSettings);
+        if (shouldDelete) {
+            engine.deleteBody(selectedBodyId);
+            selectedBodyId = -1;
+        } else if (shouldDeselect) {
+            selectedBodyId = -1;
         }
 
         EndDrawing();
